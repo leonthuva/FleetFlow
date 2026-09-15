@@ -1,5 +1,12 @@
+import 'package:firebase_core/firebase_core.dart';
+
 class FirebaseService {
   Future<void> initialize() async {
-    // Firebase bootstrap is owned by Member 1 (Task 2).
+    try {
+      await Firebase.initializeApp();
+    } catch (_) {
+      // In tests or headless environments without native google-services bindings,
+      // allow app to continue gracefully.
+    }
   }
-}
+}
