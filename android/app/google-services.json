@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "337102459948",
+    "project_id": "fleetflow-dev-29e55",
+    "storage_bucket": "fleetflow-dev-29e55.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337102459948:android:06ea552eab73d69d69ed89",
+        "android_client_info": {
+          "package_name": "com.fleetflow.fleet_flow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCY3hLfhLlUijGd-EzJ4JN2SAEPflgFH7s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
