@@ -17,6 +17,201 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
 
+  final List<Map<String, String>> _sampleDrivers = [
+    {'name': 'Marcus Vance', 'email': 'marcus@fleetflow.com', 'status': 'On Shift', 'vehicle': 'Ford Transit (FL-101)'},
+    {'name': 'Sara Connor', 'email': 'sara@fleetflow.com', 'status': 'On Shift', 'vehicle': 'Mercedes Sprinter (FL-204)'},
+    {'name': 'Liam Chen', 'email': 'liam@fleetflow.com', 'status': 'Off Duty', 'vehicle': 'Unassigned'},
+    {'name': 'Elena Rostova', 'email': 'elena@fleetflow.com', 'status': 'Off Duty', 'vehicle': 'Unassigned'},
+  ];
+
+  final List<Map<String, String>> _sampleVehicles = [
+    {'model': 'Ford Transit High Roof', 'plate': 'FL-101', 'status': 'in-use'},
+    {'model': 'Mercedes-Benz Sprinter', 'plate': 'FL-204', 'status': 'in-use'},
+    {'model': 'Ram ProMaster 2500', 'plate': 'FL-309', 'status': 'available'},
+    {'model': 'Chevrolet Express 3500', 'plate': 'FL-412', 'status': 'available'},
+    {'model': 'Isuzu NPR Box Truck', 'plate': 'FL-520', 'status': 'maintenance'},
+  ];
+
+  void _showAddDriverDialog() {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    String selectedVehicle = 'Ford Transit (FL-101)';
+    String selectedStatus = 'On Shift';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add New Driver'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Driver Full Name',
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  prefixIcon: Icon(Icons.email),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedVehicle,
+                decoration: const InputDecoration(
+                  labelText: 'Assigned Vehicle',
+                  prefixIcon: Icon(Icons.directions_car),
+                ),
+                items: [
+                  ..._sampleVehicles.map((v) => DropdownMenuItem(
+                        value: '${v['model']} (${v['plate']})',
+                        child: Text('${v['model']} (${v['plate']})'),
+                      )),
+                  const DropdownMenuItem(
+                    value: 'Unassigned',
+                    child: Text('Unassigned'),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val != null) selectedVehicle = val;
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: const InputDecoration(
+                  labelText: 'Duty Status',
+                  prefixIcon: Icon(Icons.schedule),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'On Shift', child: Text('On Shift')),
+                  DropdownMenuItem(value: 'Off Duty', child: Text('Off Duty')),
+                ],
+                onChanged: (val) {
+                  if (val != null) selectedStatus = val;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) {
+                return;
+              }
+              setState(() {
+                _sampleDrivers.add({
+                  'name': nameCtrl.text.trim(),
+                  'email': emailCtrl.text.trim(),
+                  'vehicle': selectedVehicle,
+                  'status': selectedStatus,
+                });
+              });
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Driver "${nameCtrl.text.trim()}" added successfully.'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Add Driver'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddVehicleDialog() {
+    final modelCtrl = TextEditingController();
+    final plateCtrl = TextEditingController();
+    String selectedStatus = 'available';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add New Fleet Vehicle'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: modelCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Vehicle Model (e.g. Ford Transit)',
+                  prefixIcon: Icon(Icons.directions_car),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: plateCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'License Plate (e.g. FL-801)',
+                  prefixIcon: Icon(Icons.badge),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  prefixIcon: Icon(Icons.flag),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'available', child: Text('Available')),
+                  DropdownMenuItem(value: 'in-use', child: Text('In Use')),
+                  DropdownMenuItem(value: 'maintenance', child: Text('Maintenance')),
+                ],
+                onChanged: (val) {
+                  if (val != null) selectedStatus = val;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (modelCtrl.text.trim().isEmpty || plateCtrl.text.trim().isEmpty) {
+                return;
+              }
+              setState(() {
+                _sampleVehicles.add({
+                  'model': modelCtrl.text.trim(),
+                  'plate': plateCtrl.text.trim().toUpperCase(),
+                  'status': selectedStatus,
+                });
+              });
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Vehicle "${plateCtrl.text.trim()}" added to inventory.'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Add Vehicle'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -344,13 +539,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDriversTab(BuildContext context) {
-    final sampleDrivers = [
-      {'name': 'Marcus Vance', 'email': 'marcus@fleetflow.com', 'status': 'On Shift', 'vehicle': 'Ford Transit (FL-101)'},
-      {'name': 'Sara Connor', 'email': 'sara@fleetflow.com', 'status': 'On Shift', 'vehicle': 'Mercedes Sprinter (FL-204)'},
-      {'name': 'Liam Chen', 'email': 'liam@fleetflow.com', 'status': 'Off Duty', 'vehicle': 'Unassigned'},
-      {'name': 'Elena Rostova', 'email': 'elena@fleetflow.com', 'status': 'Off Duty', 'vehicle': 'Unassigned'},
-    ];
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -358,24 +546,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Registered Drivers (${sampleDrivers.length})',
+              'Registered Drivers (${_sampleDrivers.length})',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
             FilledButton.tonalIcon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add Driver dialog — to be wired with Member 2 CRUD')),
-                );
-              },
+              onPressed: _showAddDriverDialog,
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Add Driver'),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        ...sampleDrivers.map((driver) {
+        ..._sampleDrivers.map((driver) {
           final isOnShift = driver['status'] == 'On Shift';
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
@@ -410,15 +594,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildVehiclesTab(BuildContext context) {
-    // Agreed schema status values: 'available'|'in-use'|'maintenance'
-    final sampleVehicles = [
-      {'model': 'Ford Transit High Roof', 'plate': 'FL-101', 'status': 'in-use'},
-      {'model': 'Mercedes-Benz Sprinter', 'plate': 'FL-204', 'status': 'in-use'},
-      {'model': 'Ram ProMaster 2500', 'plate': 'FL-309', 'status': 'available'},
-      {'model': 'Chevrolet Express 3500', 'plate': 'FL-412', 'status': 'available'},
-      {'model': 'Isuzu NPR Box Truck', 'plate': 'FL-520', 'status': 'maintenance'},
-    ];
-
     Color getStatusColor(String status) {
       switch (status) {
         case 'available':
@@ -439,24 +614,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Fleet Inventory (${sampleVehicles.length})',
+              'Fleet Inventory (${_sampleVehicles.length})',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
             FilledButton.tonalIcon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add Vehicle dialog — to be wired with Member 2 CRUD')),
-                );
-              },
+              onPressed: _showAddVehicleDialog,
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Add Vehicle'),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        ...sampleVehicles.map((vehicle) {
+        ..._sampleVehicles.map((vehicle) {
           final color = getStatusColor(vehicle['status']!);
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
