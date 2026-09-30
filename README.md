@@ -112,23 +112,23 @@ Security note: Firestore rules start in **test mode** during development and are
 
 ## 8. 18-Day Implementation Timeline
 
-| Day | Milestone |
-|-----|-----------|
-| 1 | Bootstrap: repo, tooling, Firebase dev project, setup guide (Member 6) |
-| 2 | Base app shell + Firebase login (Member 1) |
-| 3–5 | Auth flows, role routing, driver/vehicle CRUD (M1, M2, M3) |
-| 6–8 | Delivery creation/assignment + Firestore providers (M3, M2) |
-| 9–11 | GPS tracking, map visualization, live shift (M3, M5) |
-| 12–14 | Status updates, proof-of-delivery photo upload (M5, M4) |
-| 15–16 | Trip history, FCM push, notifications (M4, M5) |
-| 17 | Integration testing, polish, security rules |
-| 18 | Demo prep + handoff report |
+| Day | Milestone | Status |
+|-----|-----------|:------:|
+| 1 | Bootstrap: repo, tooling, Firebase dev project, setup guide (Member 6) | ✅ Completed |
+| 2 | Base app shell + Firebase login + admin portal (Member 1) | ✅ Completed |
+| 3–5 | Driver Home, assigned jobs, delivery detail, shift summary, status flow (`assigned` → `picked_up` → `in_transit` → `arrived` → `completed`), agreed insertion points (M3–5), Driver/Vehicle CRUD (Member 2) | ✅ Completed |
+| 6–8 | Providers, GPS/trip providers, active-shift tracking & telematics (Member 3) | ⏳ In Progress (Task 4) |
+| 9–11 | Map visualization, live shift tracking, route polyline (M3, M5) | Scheduled |
+| 12–14 | Camera capture, proof-of-delivery upload, FCM notifications (M5, M4) | Scheduled |
+| 15–16 | Trip history, reports, push alerts (M4, M5) | Scheduled |
+| 17 | Integration testing, polish, security rules | Scheduled |
+| 18 | Demo prep + handoff report | Scheduled |
 
 ---
 
 ## 9. Next Steps & Handoff Protocol
 
-1. **Kickoff complete when:** all six members can `git clone`, `flutter pub get`, `flutter run`, and open `SETUP.md`.
-2. **To Member 1 (Task 2):** repo URL, branch rules, module ownership, Firebase dev project ready — build `main.dart` entry + Firebase init + email/password login screen on `feature/auth`.
-3. Use PRs for every task; apply the review rule before merging.
-4. After each task, update the timeline above and hand off to the next member.
+1. **Member 1 (Task 2) Complete:** Auth provider, user roles, login screen, manager admin dashboard with tab guards (`feature/member1-admin-auth`).
+2. **Member 2 (Task 3) Complete:** Driver Home, Assigned Jobs, Delivery Detail, Shift Summary, delivery lifecycle state machine (`assigned` → `picked_up` → `in_transit` → `arrived` → `completed`), agreed component insertion points for Members 3–5 (`MapInsertionPoint`, `CameraPodInsertionPoint`, `SafetyTelematicsInsertionPoint`), and Driver/Vehicle CRUD. Full technical documentation available in [docs/HANDOFF_MEMBER2_TO_MEMBER3.md](docs/HANDOFF_MEMBER2_TO_MEMBER3.md).
+3. **To Member 3 (Task 4 Handoff):** Implement `TripProvider` / `LocationProvider`, wire GPS stream and speed calculation into `MapInsertionPoint` and `SafetyTelematicsInsertionPoint`, and handle active shift trip recording.
+4. Use PRs for every task; apply the review rule before merging.

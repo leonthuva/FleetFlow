@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/driver_provider.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/driver/assigned_jobs_screen.dart';
+import 'screens/driver/driver_home_screen.dart';
+import 'screens/driver/shift_summary_screen.dart';
 import 'services/firebase_service.dart';
 
 void main() async {
@@ -14,11 +17,13 @@ void main() async {
 
 class FleetFlowApp extends StatefulWidget {
   final AuthProvider? authProvider;
+  final DriverProvider? driverProvider;
   final Widget? home;
 
   const FleetFlowApp({
     super.key,
     this.authProvider,
+    this.driverProvider,
     this.home,
   });
 
@@ -28,11 +33,13 @@ class FleetFlowApp extends StatefulWidget {
 
 class _FleetFlowAppState extends State<FleetFlowApp> {
   late final AuthProvider _authProvider;
+  late final DriverProvider _driverProvider;
 
   @override
   void initState() {
     super.initState();
     _authProvider = widget.authProvider ?? AuthProvider();
+    _driverProvider = widget.driverProvider ?? DriverProvider();
   }
 
   @override
@@ -47,7 +54,16 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
       routes: {
         '/login': (context) => LoginScreen(authProvider: _authProvider),
         '/admin': (context) => AdminDashboardScreen(authProvider: _authProvider),
-        '/driver-home': (context) => const HomeScreen(),
+        '/driver-home': (context) => DriverHomeScreen(
+              authProvider: _authProvider,
+              driverProvider: _driverProvider,
+            ),
+        '/driver/jobs': (context) => AssignedJobsScreen(
+              driverProvider: _driverProvider,
+            ),
+        '/driver/shift-summary': (context) => ShiftSummaryScreen(
+              driverProvider: _driverProvider,
+            ),
       },
     );
   }
@@ -64,9 +80,12 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
         if (user != null && user.isManager) {
           return AdminDashboardScreen(authProvider: _authProvider);
         } else {
-          return const HomeScreen();
+          return DriverHomeScreen(
+            authProvider: _authProvider,
+            driverProvider: _driverProvider,
+          );
         }
       },
     );
   }
-}
+}
