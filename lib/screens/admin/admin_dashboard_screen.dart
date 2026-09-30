@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
+import '../customer/customer_tracking_screen.dart';
+import '../notifications/notifications_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final AuthProvider authProvider;
@@ -16,6 +19,7 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
+  final NotificationProvider _notificationProvider = NotificationProvider();
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +87,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 backgroundColor: Colors.deepOrange.shade50,
                 side: BorderSide(color: Colors.deepOrange.shade200),
+              ),
+              ListenableBuilder(
+                listenable: _notificationProvider,
+                builder: (context, _) {
+                  final unread = _notificationProvider.unreadCount;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_outlined),
+                        tooltip: 'Notifications',
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => NotificationsScreen(
+                                notificationProvider: _notificationProvider,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      if (unread > 0)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '$unread',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
               IconButton(
                 icon: const Icon(Icons.logout),
@@ -279,6 +327,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               avatar: const Icon(Icons.directions_car_filled_outlined, size: 18),
               label: const Text('Register Vehicle'),
               onPressed: () => setState(() => _currentIndex = 2),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.qr_code_scanner, size: 18),
+              label: const Text('Customer Tracking View'),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CustomerTrackingScreen(),
+                  ),
+                );
+              },
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.notifications_active_outlined, size: 18),
+              label: const Text('Notification Feed'),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => NotificationsScreen(
+                      notificationProvider: _notificationProvider,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -579,6 +651,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       Text(
                         'Assigned: ${delivery['driver']}',
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => CustomerTrackingScreen(
+                                deliveryId: delivery['id'],
+                              ),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          delivery['status'] == 'delivered' ? Icons.verified_outlined : Icons.track_changes,
+                          size: 16,
+                        ),
+                        label: Text(
+                          delivery['status'] == 'delivered' ? 'View Proof (POD)' : 'Track',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
                     ],
                   ),
