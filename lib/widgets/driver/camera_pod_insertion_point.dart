@@ -139,7 +139,7 @@ class _CameraPodInsertionPointState extends State<CameraPodInsertionPoint> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.black70,
+                                color: Colors.black87,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Text(
