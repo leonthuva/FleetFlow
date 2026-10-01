@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
 import '../services/delivery_service.dart';
 import 'customer/customer_tracking_screen.dart';
+import 'driver/driver_home_screen.dart';
 import 'notifications/notifications_screen.dart';
 import 'proof/proof_of_delivery_screen.dart';
 
@@ -95,6 +96,20 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('FleetFlow Driver'),
         actions: [
+          // Switch to Driver Portal screen
+          IconButton(
+            icon: const Icon(Icons.dashboard_customize_outlined),
+            tooltip: 'Driver Telematics Portal',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => DriverHomeScreen(
+                    authProvider: widget.authProvider,
+                  ),
+                ),
+              );
+            },
+          ),
           // Customer Tracking Simulator shortcut for demo
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
