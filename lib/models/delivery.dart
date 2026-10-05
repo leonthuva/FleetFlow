@@ -17,6 +17,15 @@ class DeliveryStatus {
     completed,
   ];
 
+  /// All active/standard statuses
+  static const List<String> all = [
+    assigned,
+    pickedUp,
+    inTransit,
+    arrived,
+    completed,
+  ];
+
   /// Human-friendly display label for each status.
   static String displayName(String status) {
     switch (status) {
@@ -30,6 +39,26 @@ class DeliveryStatus {
         return 'Arrived';
       case completed:
         return 'Completed';
+      case cancelled:
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  /// Label helper matching Member 5 UI requirements
+  static String getLabel(String status) {
+    switch (status) {
+      case assigned:
+        return 'Assigned';
+      case pickedUp:
+        return 'Picked Up';
+      case inTransit:
+        return 'In Transit';
+      case arrived:
+        return 'Arrived';
+      case completed:
+        return 'Delivered';
       case cancelled:
         return 'Cancelled';
       default:
@@ -75,40 +104,58 @@ class Delivery {
   final String status;
   final String recipientName;
   final String recipientPhone;
+  final String pickup;
   final double latitude;
   final double longitude;
   final String packageDescription;
   final String specialInstructions;
   final String priority; // 'standard', 'high', 'urgent'
+  final String? eta;
   final String? proofPhotoUrl;
   final String? signatureNotes;
-  final DateTime createdAt;
+  final DateTime? createdAt;
   final DateTime? pickedUpAt;
   final DateTime? inTransitAt;
   final DateTime? arrivedAt;
   final DateTime? completedAt;
 
-  Delivery({
+  const Delivery({
     required this.id,
-    required this.driverId,
-    required this.vehicleId,
-    required this.address,
-    required this.status,
-    this.recipientName = 'Valued Customer',
-    this.recipientPhone = '+1 (555) 019-2834',
+    String? driverId,
+    String? assignedDriverId,
+    this.vehicleId = '',
+    String? address,
+    String? destination,
+    this.status = DeliveryStatus.assigned,
+    String? recipientName,
+    String? customerName,
+    String? recipientPhone,
+    String? customerPhone,
+    this.pickup = 'Central Logistics Hub, Bay 3',
     this.latitude = 37.7749,
     this.longitude = -122.4194,
     this.packageDescription = 'Standard Parcel Delivery',
     this.specialInstructions = 'Deliver to front desk or designated receiving area.',
     this.priority = 'standard',
+    this.eta,
     this.proofPhotoUrl,
     this.signatureNotes,
-    DateTime? createdAt,
+    this.createdAt,
     this.pickedUpAt,
     this.inTransitAt,
     this.arrivedAt,
     this.completedAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+  })  : driverId = driverId ?? assignedDriverId ?? '',
+        address = address ?? destination ?? '',
+        recipientName = recipientName ?? customerName ?? 'Valued Customer',
+        recipientPhone = recipientPhone ?? customerPhone ?? '+1 (555) 019-2834';
+
+  // Backwards compatibility helpers
+  String get deliveryId => id;
+  String get assignedDriverId => driverId;
+  String get destination => address;
+  String get customerName => recipientName;
+  String get customerPhone => recipientPhone;
 
   // Status check getters
   bool get isAssigned => status == DeliveryStatus.assigned;
@@ -136,34 +183,46 @@ class Delivery {
 
   factory Delivery.fromMap(Map<String, dynamic> map, {String? documentId}) {
     return Delivery(
-      id: documentId ?? map['id'] as String? ?? '',
-      driverId: map['driverId'] as String? ?? '',
+      id: documentId ?? map['id'] as String? ?? map['deliveryId'] as String? ?? '',
+      driverId: map['driverId'] as String? ?? map['assignedDriverId'] as String? ?? '',
       vehicleId: map['vehicleId'] as String? ?? '',
-      address: map['address'] as String? ?? '',
+      address: map['address'] as String? ?? map['destination'] as String? ?? '',
+      pickup: map['pickup'] as String? ?? 'Central Logistics Hub, Bay 3',
       status: map['status'] as String? ?? DeliveryStatus.assigned,
-      recipientName: map['recipientName'] as String? ?? 'Valued Customer',
-      recipientPhone: map['recipientPhone'] as String? ?? '+1 (555) 019-2834',
+      recipientName: map['recipientName'] as String? ?? map['customerName'] as String? ?? 'Valued Customer',
+      recipientPhone: map['recipientPhone'] as String? ?? map['customerPhone'] as String? ?? '+1 (555) 019-2834',
       latitude: (map['latitude'] as num?)?.toDouble() ?? 37.7749,
       longitude: (map['longitude'] as num?)?.toDouble() ?? -122.4194,
       packageDescription: map['packageDescription'] as String? ?? 'Standard Parcel Delivery',
       specialInstructions: map['specialInstructions'] as String? ?? 'Deliver to front desk.',
       priority: map['priority'] as String? ?? 'standard',
-      proofPhotoUrl: map['proofPhotoUrl'] as String?,
+      eta: map['eta'] as String?,
+      proofPhotoUrl: map['proofPhotoUrl'] as String? ?? map['proofPhotoURL'] as String?,
       signatureNotes: map['signatureNotes'] as String?,
       createdAt: map['createdAt'] != null
-          ? DateTime.tryParse(map['createdAt'].toString()) ?? DateTime.now()
+          ? (map['createdAt'] is DateTime
+              ? map['createdAt'] as DateTime
+              : DateTime.tryParse(map['createdAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
       pickedUpAt: map['pickedUpAt'] != null
-          ? DateTime.tryParse(map['pickedUpAt'].toString())
+          ? (map['pickedUpAt'] is DateTime
+              ? map['pickedUpAt'] as DateTime
+              : DateTime.tryParse(map['pickedUpAt'].toString()))
           : null,
       inTransitAt: map['inTransitAt'] != null
-          ? DateTime.tryParse(map['inTransitAt'].toString())
+          ? (map['inTransitAt'] is DateTime
+              ? map['inTransitAt'] as DateTime
+              : DateTime.tryParse(map['inTransitAt'].toString()))
           : null,
       arrivedAt: map['arrivedAt'] != null
-          ? DateTime.tryParse(map['arrivedAt'].toString())
+          ? (map['arrivedAt'] is DateTime
+              ? map['arrivedAt'] as DateTime
+              : DateTime.tryParse(map['arrivedAt'].toString()))
           : null,
       completedAt: map['completedAt'] != null
-          ? DateTime.tryParse(map['completedAt'].toString())
+          ? (map['completedAt'] is DateTime
+              ? map['completedAt'] as DateTime
+              : DateTime.tryParse(map['completedAt'].toString()))
           : null,
     );
   }
@@ -171,20 +230,27 @@ class Delivery {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'deliveryId': id,
       'driverId': driverId,
+      'assignedDriverId': driverId,
       'vehicleId': vehicleId,
       'address': address,
+      'destination': address,
+      'pickup': pickup,
       'status': status,
       'recipientName': recipientName,
+      'customerName': recipientName,
       'recipientPhone': recipientPhone,
+      'customerPhone': recipientPhone,
       'latitude': latitude,
       'longitude': longitude,
       'packageDescription': packageDescription,
       'specialInstructions': specialInstructions,
       'priority': priority,
+      'eta': eta,
       'proofPhotoUrl': proofPhotoUrl,
       'signatureNotes': signatureNotes,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
       'pickedUpAt': pickedUpAt?.toIso8601String(),
       'inTransitAt': inTransitAt?.toIso8601String(),
       'arrivedAt': arrivedAt?.toIso8601String(),
@@ -195,16 +261,22 @@ class Delivery {
   Delivery copyWith({
     String? id,
     String? driverId,
+    String? assignedDriverId,
     String? vehicleId,
     String? address,
+    String? destination,
     String? status,
     String? recipientName,
+    String? customerName,
     String? recipientPhone,
+    String? customerPhone,
+    String? pickup,
     double? latitude,
     double? longitude,
     String? packageDescription,
     String? specialInstructions,
     String? priority,
+    String? eta,
     String? proofPhotoUrl,
     String? signatureNotes,
     DateTime? createdAt,
@@ -215,17 +287,19 @@ class Delivery {
   }) {
     return Delivery(
       id: id ?? this.id,
-      driverId: driverId ?? this.driverId,
+      driverId: driverId ?? assignedDriverId ?? this.driverId,
       vehicleId: vehicleId ?? this.vehicleId,
-      address: address ?? this.address,
+      address: address ?? destination ?? this.address,
       status: status ?? this.status,
-      recipientName: recipientName ?? this.recipientName,
-      recipientPhone: recipientPhone ?? this.recipientPhone,
+      recipientName: recipientName ?? customerName ?? this.recipientName,
+      recipientPhone: recipientPhone ?? customerPhone ?? this.recipientPhone,
+      pickup: pickup ?? this.pickup,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       packageDescription: packageDescription ?? this.packageDescription,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       priority: priority ?? this.priority,
+      eta: eta ?? this.eta,
       proofPhotoUrl: proofPhotoUrl ?? this.proofPhotoUrl,
       signatureNotes: signatureNotes ?? this.signatureNotes,
       createdAt: createdAt ?? this.createdAt,

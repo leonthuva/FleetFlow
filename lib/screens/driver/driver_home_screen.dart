@@ -434,7 +434,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return Row(
       children: [
         Expanded(
-          child: OutlinedButton.icon(
+          child: OutlinedButton(
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -444,17 +444,23 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ),
               );
             },
-            icon: const Icon(Icons.list_alt),
-            label: const Text('All Jobs'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.list_alt),
+                SizedBox(width: 8),
+                Text('All Jobs'),
+              ],
             ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: OutlinedButton.icon(
+          child: OutlinedButton(
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -464,11 +470,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ),
               );
             },
-            icon: const Icon(Icons.analytics_outlined),
-            label: const Text('Summary'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.analytics_outlined),
+                SizedBox(width: 8),
+                Text('Summary'),
+              ],
             ),
           ),
         ),

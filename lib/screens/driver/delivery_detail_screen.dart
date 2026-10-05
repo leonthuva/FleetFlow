@@ -55,8 +55,6 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return ListenableBuilder(
       listenable: widget.driverProvider,
       builder: (context, _) {
@@ -421,14 +419,20 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
         ],
       ),
       child: SafeArea(
-        child: FilledButton.icon(
+        child: FilledButton(
           onPressed: () => _advanceDelivery(delivery),
-          icon: Icon(actionIcon),
-          label: Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
           style: FilledButton.styleFrom(
             backgroundColor: buttonColor,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(actionIcon),
+              const SizedBox(width: 8),
+              Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
           ),
         ),
       ),

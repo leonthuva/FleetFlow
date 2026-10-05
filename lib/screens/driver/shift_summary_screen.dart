@@ -264,14 +264,20 @@ class ShiftSummaryScreen extends StatelessWidget {
 
                 // Shift Action Buttons
                 if (isShiftActive) ...[
-                  FilledButton.icon(
+                  FilledButton(
                     onPressed: () => _confirmEndShift(context),
-                    icon: const Icon(Icons.timer_off),
-                    label: const Text('End Shift & Clock Out', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.red.shade700,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.timer_off),
+                        SizedBox(width: 8),
+                        Text('End Shift & Clock Out', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),

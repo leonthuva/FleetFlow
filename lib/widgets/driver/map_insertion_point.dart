@@ -131,7 +131,7 @@ class MapInsertionPoint extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black89,
+                      color: Colors.black87,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
