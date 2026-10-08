@@ -21,6 +21,9 @@ String formatTripDateTime(DateTime time) {
   return '${_months[time.month - 1]} ${time.day}, $hour:$minute';
 }
 
+/// e.g. "Oct 8"
+String formatTripDate(DateTime time) => '${_months[time.month - 1]} ${time.day}';
+
 String formatCoordinates(double? lat, double? lng) {
   if (lat == null || lng == null) return 'Not recorded';
   return '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';

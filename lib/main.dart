@@ -69,7 +69,10 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
       home: widget.home ?? _buildAuthGate(),
       routes: {
         '/login': (context) => LoginScreen(authProvider: _authProvider),
-        '/admin': (context) => AdminDashboardScreen(authProvider: _authProvider),
+        '/admin': (context) => AdminDashboardScreen(
+              authProvider: _authProvider,
+              historyProvider: _historyProvider,
+            ),
         '/driver-home': (context) => DriverHomeScreen(
               authProvider: _authProvider,
               driverProvider: _driverProvider,
@@ -104,7 +107,10 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
 
         final user = _authProvider.currentUser;
         if (user != null && user.isManager) {
-          return AdminDashboardScreen(authProvider: _authProvider);
+          return AdminDashboardScreen(
+            authProvider: _authProvider,
+            historyProvider: _historyProvider,
+          );
         } else {
           return DriverHomeScreen(
             authProvider: _authProvider,

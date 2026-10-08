@@ -86,6 +86,17 @@ void main() {
     expect(byVehicle['FL-412']!.completedCount, 1);
   });
 
+  test('driver and vehicle options stay complete after a filter narrows the list', () async {
+    final provider = build();
+    await provider.load();
+    expect(provider.driverOptions, ['Liam Chen', 'Marcus Vance', 'Sara Connor']);
+    expect(provider.vehicleOptions, ['FL-101', 'FL-204', 'FL-412']);
+
+    await provider.setDriverFilter('Sara Connor');
+    expect(provider.trips.length, 2);
+    expect(provider.driverOptions, ['Liam Chen', 'Marcus Vance', 'Sara Connor']);
+  });
+
   test('service errors surface as errorMessage with empty trips', () async {
     final provider = HistoryProvider(service: _FailingTripService());
     await provider.load();

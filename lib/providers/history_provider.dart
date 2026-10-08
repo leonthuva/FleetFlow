@@ -31,6 +31,10 @@ class HistoryProvider extends ChangeNotifier {
   DateTime? _from;
   DateTime? _to;
 
+  // Every driver/vehicle seen so far, so filter dropdowns don't shrink once a filter is applied.
+  final Set<String> _knownDrivers = {};
+  final Set<String> _knownVehicles = {};
+
   int _loadCounter = 0;
   bool _disposed = false;
 
@@ -50,6 +54,9 @@ class HistoryProvider extends ChangeNotifier {
       _statusFilter != null ||
       _from != null ||
       _to != null;
+
+  List<String> get driverOptions => _knownDrivers.toList()..sort();
+  List<String> get vehicleOptions => _knownVehicles.toList()..sort();
 
   /// Totals for the trips currently shown.
   TripSummary get summary => TripSummary.fromTrips(_trips);
@@ -83,6 +90,10 @@ class HistoryProvider extends ChangeNotifier {
       );
       if (ticket != _loadCounter) return; // a newer load superseded this one
       _trips = result;
+      for (final trip in result) {
+        _knownDrivers.add(trip.driverId);
+        _knownVehicles.add(trip.vehicleId);
+      }
     } catch (e) {
       if (ticket != _loadCounter) return;
       _trips = [];
