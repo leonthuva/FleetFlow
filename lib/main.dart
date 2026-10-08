@@ -15,6 +15,8 @@ import 'screens/home_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'services/firebase_service.dart';
 import 'services/notification_service.dart';
+import 'services/trip_alert_service.dart';
+import 'services/trip_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,7 +57,9 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
     _authProvider = widget.authProvider ?? AuthProvider();
     _driverProvider = widget.driverProvider ?? DriverProvider();
     _notificationProvider = widget.notificationProvider ?? NotificationProvider();
-    _historyProvider = widget.historyProvider ?? HistoryProvider();
+    final tripAlerts = TripAlertService();
+    _historyProvider = widget.historyProvider ??
+        HistoryProvider(service: TripService(alerts: tripAlerts), alerts: tripAlerts);
   }
 
   @override

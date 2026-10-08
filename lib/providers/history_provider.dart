@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/trip.dart';
 import '../models/trip_summary.dart';
 import '../models/user.dart';
+import '../services/trip_alert_service.dart';
 import '../services/trip_service.dart';
 
 /// State for the trip history and report screens.
@@ -9,8 +10,12 @@ import '../services/trip_service.dart';
 /// Drivers only ever see their own trips: [loadForUser] locks the driver
 /// filter for driver accounts, and [setDriverFilter] is ignored while locked.
 class HistoryProvider extends ChangeNotifier {
-  HistoryProvider({TripService? service, String Function(AppUser user)? driverIdFor})
-      : _service = service ?? TripService(),
+  HistoryProvider({
+    TripService? service,
+    TripAlertService? alerts,
+    String Function(AppUser user)? driverIdFor,
+  })  : _service = service ?? TripService(),
+        _alerts = alerts,
         _driverIdFor = driverIdFor ?? _defaultDriverIdFor;
 
   /// Trips store `driverId` as a display name in the current sample data, so
@@ -18,6 +23,7 @@ class HistoryProvider extends ChangeNotifier {
   static String _defaultDriverIdFor(AppUser user) => user.displayName;
 
   final TripService _service;
+  final TripAlertService? _alerts;
   final String Function(AppUser user) _driverIdFor;
 
   List<Trip> _trips = [];
@@ -93,6 +99,15 @@ class HistoryProvider extends ChangeNotifier {
       for (final trip in result) {
         _knownDrivers.add(trip.driverId);
         _knownVehicles.add(trip.vehicleId);
+      }
+      // Managers get a heads-up about trips that have run too long. Drivers don't alert on themselves.
+      if (!isDriverLocked) {
+        try {
+          await _alerts?.checkLongTrips(result);
+        } catch (e) {
+          debugPrint('HistoryProvider: long-trip alert failed: $e');
+        }
+        if (ticket != _loadCounter) return;
       }
     } catch (e) {
       if (ticket != _loadCounter) return;

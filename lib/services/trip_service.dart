@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/trip.dart';
+import 'trip_alert_service.dart';
 
 /// Reads trip history from Firestore `trips/`, falling back to in-memory
 /// sample data when Firestore is unavailable (tests, offline dev), the same
@@ -8,17 +9,24 @@ import '../models/trip.dart';
 ///
 /// `TripService()` is local-only. Use `TripService.firestore()` in the app.
 class TripService {
-  TripService({List<Trip>? seed, DateTime? now})
+  TripService({List<Trip>? seed, DateTime? now, TripAlertService? alerts})
       : _db = null,
+        _alerts = alerts,
         _localTrips = List.of(seed ?? sampleTrips(now ?? DateTime.now()));
 
-  TripService.firestore({FirebaseFirestore? instance, List<Trip>? seed, DateTime? now})
-      : _db = instance ?? FirebaseFirestore.instance,
+  TripService.firestore({
+    FirebaseFirestore? instance,
+    List<Trip>? seed,
+    DateTime? now,
+    TripAlertService? alerts,
+  })  : _db = instance ?? FirebaseFirestore.instance,
+        _alerts = alerts,
         _localTrips = List.of(seed ?? sampleTrips(now ?? DateTime.now()));
 
   static const String collectionName = 'trips';
 
   final FirebaseFirestore? _db;
+  final TripAlertService? _alerts;
   final List<Trip> _localTrips;
 
   /// Trips matching the filters, newest first.
@@ -83,10 +91,12 @@ class TripService {
     return null;
   }
 
-  /// Saves a trip locally and, if connected, to Firestore.
+  /// Saves a trip locally and, if connected, to Firestore. When the trip
+  /// becomes completed, managers are alerted (once) through [TripAlertService].
   /// Intended for sample data and tests; real trips are written by Member 3's tracking.
   Future<void> saveTrip(Trip trip) async {
     final index = _localTrips.indexWhere((t) => t.id == trip.id);
+    final wasCompleted = index != -1 && _localTrips[index].isCompleted;
     if (index == -1) {
       _localTrips.add(trip);
     } else {
@@ -94,14 +104,24 @@ class TripService {
     }
 
     final db = _db;
-    if (db == null) return;
-    try {
-      final data = trip.toMap()
-        ..['startTime'] = Timestamp.fromDate(trip.startTime)
-        ..['endTime'] = trip.endTime == null ? null : Timestamp.fromDate(trip.endTime!);
-      await db.collection(collectionName).doc(trip.id).set(data);
-    } catch (e) {
-      debugPrint('TripService: Firestore write failed: $e');
+    if (db != null) {
+      try {
+        final data = trip.toMap()
+          ..['startTime'] = Timestamp.fromDate(trip.startTime)
+          ..['endTime'] = trip.endTime == null ? null : Timestamp.fromDate(trip.endTime!);
+        await db.collection(collectionName).doc(trip.id).set(data);
+      } catch (e) {
+        debugPrint('TripService: Firestore write failed: $e');
+      }
+    }
+
+    // Alert last, and never let a failed push block or undo the save.
+    if (trip.isCompleted && !wasCompleted) {
+      try {
+        await _alerts?.notifyTripCompleted(trip);
+      } catch (e) {
+        debugPrint('TripService: trip completed alert failed: $e');
+      }
     }
   }
 
