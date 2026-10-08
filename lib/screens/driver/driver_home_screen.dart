@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 import '../../models/delivery.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/driver_provider.dart';
+import '../../providers/history_provider.dart';
 import '../../widgets/driver/safety_telematics_insertion_point.dart';
 import 'assigned_jobs_screen.dart';
+import '../history/trip_history_screen.dart';
 import 'delivery_detail_screen.dart';
 import 'shift_summary_screen.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   final AuthProvider? authProvider;
   final DriverProvider? driverProvider;
+  final HistoryProvider? historyProvider;
 
   const DriverHomeScreen({
     super.key,
     this.authProvider,
     this.driverProvider,
+    this.historyProvider,
   });
 
   @override
@@ -23,11 +27,13 @@ class DriverHomeScreen extends StatefulWidget {
 
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   late final DriverProvider _driverProvider;
+  late final HistoryProvider _historyProvider;
 
   @override
   void initState() {
     super.initState();
     _driverProvider = widget.driverProvider ?? DriverProvider();
+    _historyProvider = widget.historyProvider ?? HistoryProvider();
   }
 
   String _formatDuration(Duration duration) {
@@ -480,6 +486,34 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 Icon(Icons.analytics_outlined),
                 SizedBox(width: 8),
                 Text('Summary'),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton(
+            key: const ValueKey('driver-history-button'),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TripHistoryScreen(
+                    historyProvider: _historyProvider,
+                    user: widget.authProvider?.currentUser,
+                  ),
+                ),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.history),
+                SizedBox(width: 8),
+                Text('History'),
               ],
             ),
           ),
