@@ -59,7 +59,16 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
     _notificationProvider = widget.notificationProvider ?? NotificationProvider();
     final tripAlerts = TripAlertService();
     _historyProvider = widget.historyProvider ??
-        HistoryProvider(service: TripService(alerts: tripAlerts), alerts: tripAlerts);
+        HistoryProvider(
+          service: TripService(
+            seed: [
+              ...TripService.sampleTrips(DateTime.now()),
+              ...TripService.demoDriverTrips(DateTime.now()),
+            ],
+            alerts: tripAlerts,
+          ),
+          alerts: tripAlerts,
+        );
   }
 
   @override

@@ -187,4 +187,32 @@ class TripService {
           Duration.zero, 6.3, status: TripStatus.active),
     ];
   }
+
+  /// Extra demo trips for the mock login's driver ("Assigned Driver", van FLT-882-CA),
+  /// so the driver history screen isn't empty in the running app. Not part of [sampleTrips].
+  static List<Trip> demoDriverTrips(DateTime now) {
+    Trip trip(String id, Duration startedAgo, Duration length, double km, {String? status}) {
+      final start = now.subtract(startedAgo);
+      return Trip(
+        id: id,
+        driverId: 'Assigned Driver',
+        vehicleId: 'FLT-882-CA',
+        startTime: start,
+        endTime: start.add(length),
+        status: status ?? TripStatus.completed,
+        startLat: 37.7749,
+        startLng: -122.4194,
+        endLat: 37.7833,
+        endLng: -122.4167,
+        distanceKm: km,
+      );
+    }
+
+    return [
+      trip('TRP-2001', const Duration(days: 4, hours: 6), const Duration(hours: 2, minutes: 20), 52.8),
+      trip('TRP-2002', const Duration(days: 2, hours: 5), const Duration(hours: 1, minutes: 45), 36.4),
+      trip('TRP-2003', const Duration(days: 1, hours: 8), const Duration(hours: 1), 14.2,
+          status: TripStatus.cancelled),
+    ];
+  }
 }
