@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/history_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../customer/customer_tracking_screen.dart';
+import '../history/manager_history_tab.dart';
 import '../notifications/notifications_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final AuthProvider authProvider;
+  final HistoryProvider? historyProvider;
 
   const AdminDashboardScreen({
     super.key,
     required this.authProvider,
+    this.historyProvider,
   });
 
   @override
@@ -20,6 +24,7 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
   final NotificationProvider _notificationProvider = NotificationProvider();
+  late final HistoryProvider _historyProvider = widget.historyProvider ?? HistoryProvider();
 
   final List<Map<String, String>> _sampleDrivers = [
     {'name': 'Marcus Vance', 'email': 'marcus@fleetflow.com', 'status': 'On Shift', 'vehicle': 'Ford Transit (FL-101)'},
@@ -346,6 +351,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _buildDriversTab(context),
               _buildVehiclesTab(context),
               _buildDeliveriesTab(context),
+              ManagerHistoryTab(historyProvider: _historyProvider, user: user),
             ],
           ),
           bottomNavigationBar: NavigationBar(
@@ -376,6 +382,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 selectedIcon: Icon(Icons.local_shipping),
                 label: 'Deliveries',
               ),
+              NavigationDestination(
+                icon: Icon(Icons.history_outlined),
+                selectedIcon: Icon(Icons.history),
+                label: 'History',
+              ),
             ],
           ),
         );
@@ -393,6 +404,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Vehicle Inventory';
       case 3:
         return 'Delivery Dispatch';
+      case 4:
+        return 'Trip History & Reports';
       default:
         return 'Operations';
     }
