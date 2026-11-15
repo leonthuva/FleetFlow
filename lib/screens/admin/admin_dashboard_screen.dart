@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
+
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../customer/customer_tracking_screen.dart';
 import '../notifications/notifications_screen.dart';
+import 'create_delivery_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final AuthProvider authProvider;
 
-  const AdminDashboardScreen({
-    super.key,
-    required this.authProvider,
-  });
+  const AdminDashboardScreen({super.key, required this.authProvider});
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -22,19 +21,65 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final NotificationProvider _notificationProvider = NotificationProvider();
 
   final List<Map<String, String>> _sampleDrivers = [
-    {'name': 'Marcus Vance', 'email': 'marcus@fleetflow.com', 'status': 'On Shift', 'vehicle': 'Ford Transit (FL-101)'},
-    {'name': 'Sara Connor', 'email': 'sara@fleetflow.com', 'status': 'On Shift', 'vehicle': 'Mercedes Sprinter (FL-204)'},
-    {'name': 'Liam Chen', 'email': 'liam@fleetflow.com', 'status': 'Off Duty', 'vehicle': 'Unassigned'},
-    {'name': 'Elena Rostova', 'email': 'elena@fleetflow.com', 'status': 'Off Duty', 'vehicle': 'Unassigned'},
+    {
+      'name': 'Marcus Vance',
+      'email': 'marcus@fleetflow.com',
+      'status': 'On Shift',
+      'vehicle': 'Ford Transit (FL-101)',
+    },
+    {
+      'name': 'Sara Connor',
+      'email': 'sara@fleetflow.com',
+      'status': 'On Shift',
+      'vehicle': 'Mercedes Sprinter (FL-204)',
+    },
+    {
+      'name': 'Liam Chen',
+      'email': 'liam@fleetflow.com',
+      'status': 'Off Duty',
+      'vehicle': 'Unassigned',
+    },
+    {
+      'name': 'Elena Rostova',
+      'email': 'elena@fleetflow.com',
+      'status': 'Off Duty',
+      'vehicle': 'Unassigned',
+    },
   ];
 
   final List<Map<String, String>> _sampleVehicles = [
     {'model': 'Ford Transit High Roof', 'plate': 'FL-101', 'status': 'in-use'},
     {'model': 'Mercedes-Benz Sprinter', 'plate': 'FL-204', 'status': 'in-use'},
     {'model': 'Ram ProMaster 2500', 'plate': 'FL-309', 'status': 'available'},
-    {'model': 'Chevrolet Express 3500', 'plate': 'FL-412', 'status': 'available'},
-    {'model': 'Isuzu NPR Box Truck', 'plate': 'FL-520', 'status': 'maintenance'},
+    {
+      'model': 'Chevrolet Express 3500',
+      'plate': 'FL-412',
+      'status': 'available',
+    },
+    {
+      'model': 'Isuzu NPR Box Truck',
+      'plate': 'FL-520',
+      'status': 'maintenance',
+    },
   ];
+
+  void _showCreateDeliveryForm() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CreateDeliveryScreen(
+          drivers: _sampleDrivers
+              .map(
+                (driver) => DemoDriver(
+                  id: driver['email']!,
+                  name: driver['name']!,
+                  status: driver['status']!,
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ),
+    );
+  }
 
   void _showAddDriverDialog() {
     final nameCtrl = TextEditingController();
@@ -73,10 +118,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   prefixIcon: Icon(Icons.directions_car),
                 ),
                 items: [
-                  ..._sampleVehicles.map((v) => DropdownMenuItem(
-                        value: '${v['model']} (${v['plate']})',
-                        child: Text('${v['model']} (${v['plate']})'),
-                      )),
+                  ..._sampleVehicles.map(
+                    (v) => DropdownMenuItem(
+                      value: '${v['model']} (${v['plate']})',
+                      child: Text('${v['model']} (${v['plate']})'),
+                    ),
+                  ),
                   const DropdownMenuItem(
                     value: 'Unassigned',
                     child: Text('Unassigned'),
@@ -125,7 +172,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Driver "${nameCtrl.text.trim()}" added successfully.'),
+                  content: Text(
+                    'Driver "${nameCtrl.text.trim()}" added successfully.',
+                  ),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -173,9 +222,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   prefixIcon: Icon(Icons.flag),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'available', child: Text('Available')),
+                  DropdownMenuItem(
+                    value: 'available',
+                    child: Text('Available'),
+                  ),
                   DropdownMenuItem(value: 'in-use', child: Text('In Use')),
-                  DropdownMenuItem(value: 'maintenance', child: Text('Maintenance')),
+                  DropdownMenuItem(
+                    value: 'maintenance',
+                    child: Text('Maintenance'),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) selectedStatus = val;
@@ -204,7 +259,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Vehicle "${plateCtrl.text.trim()}" added to inventory.'),
+                  content: Text(
+                    'Vehicle "${plateCtrl.text.trim()}" added to inventory.',
+                  ),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -237,13 +294,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_person_outlined, size: 72, color: Colors.red.shade700),
+                    Icon(
+                      Icons.lock_person_outlined,
+                      size: 72,
+                      color: Colors.red.shade700,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Manager Authorization Required',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -261,7 +320,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         }
                       },
                       icon: const Icon(Icons.arrow_back),
-                      label: Text(user != null ? 'Go to Driver Home' : 'Go to Login'),
+                      label: Text(
+                        user != null ? 'Go to Driver Home' : 'Go to Login',
+                      ),
                     ),
                   ],
                 ),
@@ -278,7 +339,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 avatar: const Icon(Icons.shield_outlined, size: 16),
                 label: Text(
                   user.role.toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
                 ),
                 backgroundColor: Colors.deepOrange.shade50,
                 side: BorderSide(color: Colors.deepOrange.shade200),
@@ -413,7 +477,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: const Icon(Icons.person, color: Colors.white, size: 28),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -422,9 +490,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Text(
                         user.displayName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
                         'Role: ${user.role} • ${user.email}',
@@ -441,9 +507,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
         Text(
           'Operational Highlights',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
 
@@ -498,9 +562,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
         Text(
           'Quick Operations',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
 
@@ -511,7 +573,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ActionChip(
               avatar: const Icon(Icons.add, size: 18),
               label: const Text('New Delivery'),
-              onPressed: () => setState(() => _currentIndex = 3),
+              onPressed: _showCreateDeliveryForm,
             ),
             ActionChip(
               avatar: const Icon(Icons.person_add_outlined, size: 18),
@@ -519,7 +581,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               onPressed: () => setState(() => _currentIndex = 1),
             ),
             ActionChip(
-              avatar: const Icon(Icons.directions_car_filled_outlined, size: 18),
+              avatar: const Icon(
+                Icons.directions_car_filled_outlined,
+                size: 18,
+              ),
               label: const Text('Register Vehicle'),
               onPressed: () => setState(() => _currentIndex = 2),
             ),
@@ -596,10 +661,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               Text(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -619,9 +681,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Text(
               'Registered Drivers (${_sampleDrivers.length})',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             FilledButton.tonalIcon(
               onPressed: _showAddDriverDialog,
@@ -643,8 +703,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   color: isOnShift ? Colors.green.shade800 : Colors.grey.shade600,
                 ),
               ),
-              title: Text(driver['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('${driver['email']} • Vehicle: ${driver['vehicle']}'),
+              title: Text(
+                driver['name']!,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                '${driver['email']} • Vehicle: ${driver['vehicle']}',
+              ),
               trailing: Chip(
                 label: Text(
                   driver['status']!,
@@ -687,9 +752,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Text(
               'Fleet Inventory (${_sampleVehicles.length})',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             FilledButton.tonalIcon(
               onPressed: _showAddVehicleDialog,
@@ -712,12 +775,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Icon(Icons.directions_car, color: color),
               ),
-              title: Text(vehicle['model']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(
+                vehicle['model']!,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               subtitle: Text('License: ${vehicle['plate']}'),
               trailing: Chip(
                 label: Text(
                   vehicle['status']!,
-                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 backgroundColor: color.withAlpha(25),
                 side: BorderSide(color: color.withAlpha(100)),
@@ -730,19 +800,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDeliveriesTab(BuildContext context) {
-    // Agreed schema status values: 'assigned'|'en-route'|'delivered'
+    // Demo fixtures use the canonical delivery status vocabulary.
     final sampleDeliveries = [
-      {'id': 'DEL-8801', 'address': '742 Evergreen Terrace, Springfield', 'driver': 'Marcus Vance', 'status': 'en-route'},
-      {'id': 'DEL-8802', 'address': '100 Main St, Suite 400, Metro City', 'driver': 'Sara Connor', 'status': 'en-route'},
-      {'id': 'DEL-8803', 'address': '45 West Elm Avenue, Riverdale', 'driver': 'Unassigned', 'status': 'assigned'},
-      {'id': 'DEL-8804', 'address': '12 Harbor Bay Road, Dock 4', 'driver': 'Liam Chen', 'status': 'delivered'},
+      {
+        'id': 'DEL-8801',
+        'address': '742 Evergreen Terrace, Springfield',
+        'driver': 'Marcus Vance',
+        'status': 'in_transit',
+      },
+      {
+        'id': 'DEL-8802',
+        'address': '100 Main St, Suite 400, Metro City',
+        'driver': 'Sara Connor',
+        'status': 'in_transit',
+      },
+      {
+        'id': 'DEL-8803',
+        'address': '45 West Elm Avenue, Riverdale',
+        'driver': 'Unassigned',
+        'status': 'assigned',
+      },
+      {
+        'id': 'DEL-8804',
+        'address': '12 Harbor Bay Road, Dock 4',
+        'driver': 'Liam Chen',
+        'status': 'completed',
+      },
     ];
 
     Color getStatusColor(String status) {
       switch (status) {
-        case 'delivered':
+        case 'completed':
           return Colors.teal;
-        case 'en-route':
+        case 'in_transit':
           return Colors.deepOrange;
         case 'assigned':
           return Colors.indigo;
@@ -759,16 +849,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Text(
               'Deliveries Overview (${sampleDeliveries.length})',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             FilledButton.tonalIcon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Create Delivery form — to be wired with Task 15')),
-                );
-              },
+              onPressed: _showCreateDeliveryForm,
               icon: const Icon(Icons.add, size: 16),
               label: const Text('New Delivery'),
             ),
@@ -789,12 +873,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Text(
                         delivery['id']!,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                       Chip(
                         label: Text(
                           delivery['status']!,
-                          style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         backgroundColor: color.withAlpha(25),
                         side: BorderSide(color: color.withAlpha(100)),
@@ -804,7 +895,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -817,11 +912,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.person_outline, size: 16, color: Colors.grey),
+                      const Icon(
+                        Icons.person_outline,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'Assigned: ${delivery['driver']}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                        ),
                       ),
                       const Spacer(),
                       TextButton.icon(
@@ -835,11 +937,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           );
                         },
                         icon: Icon(
-                          delivery['status'] == 'delivered' ? Icons.verified_outlined : Icons.track_changes,
+                          delivery['status'] == 'completed' ? Icons.verified_outlined : Icons.track_changes,
                           size: 16,
                         ),
                         label: Text(
-                          delivery['status'] == 'delivered' ? 'View Proof (POD)' : 'Track',
+                          delivery['status'] == 'completed' ? 'View Proof (POD)' : 'Track',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
