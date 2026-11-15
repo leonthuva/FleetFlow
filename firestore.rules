@@ -1,0 +1,253 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+
+    function isManager() {
+      return signedIn() && role() in ['admin', 'dispatcher'];
+    }
+
+    function isDriver() {
+      return signedIn() && role() == 'driver';
+    }
+
+    function onlyChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    function driverTransition(deliveryId) {
+      let current = resource.data.status;
+      let next = request.resource.data.status;
+      let proofPath = /databases/$(database)/documents/deliveryProofs/$(deliveryId);
+
+      return
+        (current == 'assigned' && next == 'picked_up'
+          && onlyChanged(['status', 'pickedUpAt', 'updatedAt'])
+          && request.resource.data.pickedUpAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        ||
+        (current == 'picked_up' && next == 'in_transit'
+          && onlyChanged(['status', 'inTransitAt', 'updatedAt'])
+          && request.resource.data.inTransitAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        ||
+        (current == 'in_transit' && next == 'arrived'
+          && onlyChanged(['status', 'arrivedAt', 'updatedAt'])
+          && request.resource.data.arrivedAt is timestamp
+          && request.resource.data.updatedAt is timestamp)
+        ||
+        (current == 'arrived' && next == 'completed'
+          && onlyChanged(['status', 'completedAt', 'proofPhotoUrl',
+                          'signatureNotes', 'updatedAt'])
+          && request.resource.data.completedAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.proofPhotoUrl is string
+          && (existsAfter(proofPath) || exists(proofPath))
+          && getAfter(proofPath).data.driverId == request.auth.uid
+          && getAfter(proofPath).data.photoUrl == request.resource.data.proofPhotoUrl);
+    }
+
+    function managerUpdate(deliveryId) {
+      let current = resource.data.status;
+      let next = request.resource.data.status;
+      let proofPath = /databases/$(database)/documents/deliveryProofs/$(deliveryId);
+
+      return
+        (current == next
+          && current in ['assigned', 'picked_up', 'in_transit', 'arrived']
+          && onlyChanged(['driverId', 'vehicleId', 'pickupAddress', 'address',
+                          'latitude', 'longitude', 'recipientName',
+                          'recipientPhone', 'packageDescription',
+                          'specialInstructions', 'priority', 'eta',
+                          'assignedAt', 'updatedAt'])
+          && request.resource.data.updatedAt is timestamp)
+        ||
+        (current in ['assigned', 'picked_up', 'in_transit', 'arrived']
+          && next == 'cancelled'
+          && onlyChanged(['status', 'cancelledAt', 'cancelReason', 'updatedAt'])
+          && request.resource.data.cancelledAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.cancelReason is string
+          && request.resource.data.cancelReason.size() > 0)
+        ||
+        (current == 'arrived' && next == 'completed'
+          && onlyChanged(['status', 'completedAt', 'proofPhotoUrl',
+                          'signatureNotes', 'updatedAt'])
+          && request.resource.data.completedAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.proofPhotoUrl is string
+          && (existsAfter(proofPath) || exists(proofPath))
+          && getAfter(proofPath).data.photoUrl == request.resource.data.proofPhotoUrl);
+    }
+
+    match /users/{uid} {
+      allow read: if isManager() || (signedIn() && request.auth.uid == uid);
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == 'driver'
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string;
+
+      allow update: if isAdmin()
+        || (signedIn()
+            && request.auth.uid == uid
+            && onlyChanged(['displayName', 'phone', 'fcmToken', 'onShift', 'updatedAt'])
+            && request.resource.data.role == resource.data.role);
+
+      allow delete: if isAdmin();
+    }
+
+    match /deliveries/{deliveryId} {
+      allow read: if isManager()
+        || (isDriver() && resource.data.driverId == request.auth.uid);
+
+      allow create, delete: if isManager();
+
+      allow update: if (isManager() && managerUpdate(deliveryId))
+        || (isDriver()
+            && resource.data.driverId == request.auth.uid
+            && request.resource.data.driverId == request.auth.uid
+            && driverTransition(deliveryId));
+    }
+
+    match /deliveryProofs/{deliveryId} {
+      allow read: if isManager()
+        || (isDriver() && resource.data.driverId == request.auth.uid);
+
+      allow create: if isDriver()
+        && request.resource.data.driverId == request.auth.uid
+        && !exists(/databases/$(database)/documents/deliveryProofs/$(deliveryId))
+        && get(/databases/$(database)/documents/deliveries/$(deliveryId)).data.status == 'arrived'
+        && get(/databases/$(database)/documents/deliveries/$(deliveryId)).data.driverId == request.auth.uid
+        && request.resource.data.photoUrl is string
+        && request.resource.data.storagePath is string
+        && request.resource.data.timestamp is timestamp
+        && request.resource.data.capturedLocation is map
+        && request.resource.data.capturedLocation.lat is number
+        && request.resource.data.capturedLocation.lng is number;
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /trips/{tripId} {
+      allow read: if isManager()
+        || (isDriver() && resource.data.driverId == request.auth.uid);
+
+      allow create: if isManager()
+        || (isDriver() && request.resource.data.driverId == request.auth.uid);
+
+      allow update: if isManager()
+        || (isDriver()
+            && resource.data.driverId == request.auth.uid
+            && request.resource.data.driverId == request.auth.uid);
+
+      allow delete: if isAdmin();
+    }
+
+    match /vehicles/{vehicleId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+    }
+
+    match /notificationTargets/{audience} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      function notificationAudienceValid() {
+        let data = request.resource.data;
+        return
+          (data.audience == 'managers'
+            && data.recipientRoles == ['admin', 'dispatcher'])
+          ||
+          (data.audience == 'driver'
+            && data.recipientRoles == ['driver'])
+          ||
+          (data.audience == 'all'
+            && data.recipientRoles == ['admin', 'dispatcher', 'driver']);
+      }
+
+      function managerTargets() {
+        return get(/databases/$(database)/documents/notificationTargets/managers).data.uids;
+      }
+
+      function driverNotificationValid() {
+        let data = request.resource.data;
+        let metadata = data.metadata;
+        let targets = managerTargets();
+        return isDriver()
+          && data.audience == 'managers'
+          && data.recipientRoles == ['admin', 'dispatcher']
+          && data.recipientIds.hasAll(targets)
+          && targets.hasAll(data.recipientIds)
+          && data.type in [
+               'status_change', 'route_deviation',
+               'safety_alert', 'delivery_completed', 'emergency'
+             ]
+          && metadata is map
+          && (
+            ('deliveryId' in metadata
+              && metadata.deliveryId is string
+              && get(/databases/$(database)/documents/deliveries/$(metadata.deliveryId))
+                   .data.driverId == request.auth.uid)
+            ||
+            ('tripId' in metadata
+              && metadata.tripId is string
+              && get(/databases/$(database)/documents/trips/$(metadata.tripId))
+                   .data.driverId == request.auth.uid)
+          );
+      }
+
+      allow read: if signedIn()
+        && request.auth.uid in resource.data.recipientIds;
+
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.recipientIds is list
+        && request.resource.data.recipientIds.size() > 0
+        && request.resource.data.recipientRoles is list
+        && notificationAudienceValid()
+        && request.resource.data.timestamp is timestamp
+        && request.resource.data.type in [
+             'assignment', 'status_change', 'route_deviation',
+             'safety_alert', 'delivery_completed', 'emergency'
+           ]
+        && (
+          isManager()
+          ||
+          driverNotificationValid()
+        );
+
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.recipientIds
+        && onlyChanged(['readBy'])
+        && request.resource.data.readBy is list
+        && request.resource.data.readBy.hasAll(resource.data.readBy)
+        && request.resource.data.readBy.size() <= resource.data.readBy.size() + 1
+        && request.auth.uid in request.resource.data.readBy;
+
+      allow delete: if isAdmin();
+    }
+
+    match /counters/{counterId} {
+      allow read: if isManager();
+      allow create: if isManager();
+      allow update: if isManager()
+        && request.resource.data.value == resource.data.value + 1;
+      allow delete: if isAdmin();
+    }
+  }
+}

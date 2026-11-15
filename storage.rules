@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function delivery(deliveryId) {
+      return firestore.get(
+        /databases/(default)/documents/deliveries/$(deliveryId)
+      ).data;
+    }
+
+    function canUpload(deliveryId) {
+      let d = delivery(deliveryId);
+      return d.driverId == request.auth.uid
+        && d.status == 'arrived';
+    }
+
+    function canRead(deliveryId) {
+      let d = delivery(deliveryId);
+      let user = firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      ).data;
+      return d.driverId == request.auth.uid
+        || user.role in ['admin', 'dispatcher'];
+    }
+
+    match /proofs/{deliveryId}/{fileName} {
+      allow create: if signedIn()
+        && canUpload(deliveryId)
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp']
+        && fileName.matches('^[0-9]+\\.(jpg|jpeg|png|webp)$')
+        && request.resource.metadata.deliveryId == deliveryId
+        && request.resource.metadata.driverId == request.auth.uid;
+
+      allow read: if signedIn() && canRead(deliveryId);
+
+      allow delete: if signedIn()
+        && delivery(deliveryId).driverId == request.auth.uid
+        && delivery(deliveryId).status == 'arrived';
+
+      allow update: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
