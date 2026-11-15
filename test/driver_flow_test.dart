@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fleet_flow/main.dart';
@@ -289,7 +290,7 @@ void main() {
       // 2. Verify Agreed Insertion Points
       // Member 5 Map / Member 3 GPS Insertion Point
       expect(find.byType(MapInsertionPoint), findsOneWidget);
-      expect(find.textContaining('Map Insertion Point (Member 5 Map / Member 3 GPS)'), findsOneWidget);
+            expect(find.byType(FlutterMap), findsOneWidget);
 
       // Member 3 & 5 Safety / Telematics Insertion Point
       expect(find.byType(SafetyTelematicsInsertionPoint), findsOneWidget);

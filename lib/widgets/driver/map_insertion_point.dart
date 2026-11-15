@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
-/// Contract & Insertion Point for:
-/// - Member 5: Map visualization & route polyline rendering
-/// - Member 3: Live GPS tracking stream & driver location telemetry
-class MapInsertionPoint extends StatelessWidget {
+/// Real OpenStreetMap view for the driver screen (Member 3).
+///
+/// The constructor is unchanged from the placeholder, so existing screens
+/// keep working.
+/// - Shows the destination pin and the driver's position.
+/// - If the parent passes currentDriverLat/currentDriverLng, those are used.
+/// - Otherwise this widget reads the phone's GPS once (foreground only).
+/// - Nothing is written to Firestore.
+class MapInsertionPoint extends StatefulWidget {
   final double destinationLat;
   final double destinationLng;
   final String destinationAddress;
@@ -30,18 +38,237 @@ class MapInsertionPoint extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hasDriverLocation = currentDriverLat != null && currentDriverLng != null;
+  State<MapInsertionPoint> createState() => _MapInsertionPointState();
+}
+
+enum _LocationState {
+  checking,
+  tracking,
+  serviceOff,
+  denied,
+  deniedForever,
+  error,
+}
+
+class _MapInsertionPointState extends State<MapInsertionPoint>
+    with WidgetsBindingObserver {
+  final MapController _mapController = MapController();
+  LatLng? _liveLocation;
+  _LocationState _state = _LocationState.checking;
+  bool _mapReady = false;
+  bool _didFitOnce = false;
+  bool _starting = false;
+  bool _wasPaused = false;
+
+  bool get _parentProvidesLocation =>
+      widget.currentDriverLat != null && widget.currentDriverLng != null;
+
+  LatLng get _destination =>
+      LatLng(widget.destinationLat, widget.destinationLng);
+
+  LatLng? get _driverLocation {
+    if (_parentProvidesLocation) {
+      return LatLng(widget.currentDriverLat!, widget.currentDriverLng!);
+    }
+    return _liveLocation;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    if (!_parentProvidesLocation) {
+      _startTracking();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MapInsertionPoint oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fitIfNeeded();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _wasPaused = true;
+      return;
+    }
+    if (state != AppLifecycleState.resumed || !_wasPaused) return;
+    _wasPaused = false;
+    if (_parentProvidesLocation) return;
+    // The user left the app and came back; they may have fixed GPS or
+    // permission in phone settings.
+    if (_state != _LocationState.tracking) {
+      _startTracking();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startTracking() async {
+    if (_starting) return;
+    _starting = true;
+    try {
+      if (!mounted) return;
+      setState(() => _state = _LocationState.checking);
+
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!mounted) return;
+      if (!serviceOn) {
+        setState(() => _state = _LocationState.serviceOff);
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (!mounted) return;
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _state = _LocationState.deniedForever);
+        return;
+      }
+      if (permission == LocationPermission.denied) {
+        setState(() => _state = _LocationState.denied);
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _liveLocation = LatLng(position.latitude, position.longitude);
+        _state = _LocationState.tracking;
+      });
+      _fitIfNeeded();
+    } catch (_) {
+      if (mounted) setState(() => _state = _LocationState.error);
+    } finally {
+      _starting = false;
+    }
+  }
+
+  void _fitIfNeeded() {
+    final driver = _driverLocation;
+    if (_didFitOnce || !_mapReady || driver == null) return;
+    _didFitOnce = true;
+    _mapController.fitCamera(
+      CameraFit.coordinates(
+        coordinates: [driver, _destination],
+        padding: const EdgeInsets.all(48),
+        maxZoom: 16,
+      ),
+    );
+  }
+
+  void _recenter() {
+    if (!_mapReady) return;
+    final driver = _driverLocation;
+    if (driver == null) {
+      if (!_parentProvidesLocation) _startTracking();
+      return;
+    }
+    _mapController.move(driver, 16);
+  }
+
+  Widget? _buildStatusBanner() {
+    if (_parentProvidesLocation || _state == _LocationState.tracking) {
+      return null;
+    }
+
+    String message;
+    String? actionLabel;
+    Future<dynamic> Function()? onAction;
+
+    switch (_state) {
+      case _LocationState.checking:
+        message = 'Finding your location...';
+        break;
+      case _LocationState.serviceOff:
+        message = 'Location is turned off';
+        actionLabel = 'Turn on';
+        onAction = Geolocator.openLocationSettings;
+        break;
+      case _LocationState.denied:
+        message = 'Location permission denied';
+        actionLabel = 'Allow';
+        onAction = _startTracking;
+        break;
+      case _LocationState.deniedForever:
+        message = 'Location permission blocked';
+        actionLabel = 'Settings';
+        onAction = Geolocator.openAppSettings;
+        break;
+      case _LocationState.error:
+        message = 'Location unavailable';
+        actionLabel = 'Retry';
+        onAction = _startTracking;
+        break;
+      case _LocationState.tracking:
+        return null;
+    }
 
     return Container(
-      height: height,
+      padding: const EdgeInsets.only(left: 10, top: 2, bottom: 2, right: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amberAccent.shade400, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.location_off,
+              color: Colors.amberAccent.shade400, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (actionLabel != null && onAction != null)
+            TextButton(
+              onPressed: () => onAction!(),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.tealAccent.shade100,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(actionLabel, style: const TextStyle(fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final driver = _driverLocation;
+    final banner = _buildStatusBanner();
+
+    return Container(
+      height: widget.height,
       decoration: BoxDecoration(
         color: Colors.blueGrey.shade900,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -51,121 +278,120 @@ class MapInsertionPoint extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Stack(
           children: [
-            // Background Map Visualization Mock / Canvas
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.blueGrey.shade800,
-                      Colors.blueGrey.shade900,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+              child: FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: _destination,
+                  initialZoom: 14,
+                  onMapReady: () {
+                    _mapReady = true;
+                    _fitIfNeeded();
+                  },
                 ),
-                child: CustomPaint(
-                  painter: _MapGridPainter(),
-                ),
-              ),
-            ),
-
-            // Insertion Point Identifier Banner (Team Agreement Notice)
-            Positioned(
-              top: 12,
-              left: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.65),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.tealAccent.shade400, width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.map_outlined, color: Colors.tealAccent.shade400, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Map Insertion Point (Member 5 Map / Member 3 GPS)',
-                        style: TextStyle(
-                          color: Colors.tealAccent.shade100,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Destination Pin & Driver Marker Visualization
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withOpacity(0.4),
-                          blurRadius: 16,
-                          spreadRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.location_on,
-                      color: Colors.white,
-                      size: 28,
-                    ),
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.fleetflow.fleet_flow',
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      destinationAddress,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _destination,
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.topCenter,
+                        child: Icon(
+                          Icons.location_on,
+                          color: theme.colorScheme.primary,
+                          size: 40,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      if (driver != null)
+                        Marker(
+                          point: driver,
+                          width: 28,
+                          height: 28,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.white, width: 3),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SimpleAttributionWidget(
+                    source: Text('OpenStreetMap contributors'),
                   ),
                 ],
               ),
             ),
 
-            // Coordinates & Telemetry Floating Strip
+            // Destination address and location status
             Positioned(
-              bottom: 12,
+              top: 12,
+              left: 12,
+              right: 12,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.flag, color: Colors.white, size: 14),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            widget.destinationAddress,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (banner != null) ...[
+                    const SizedBox(height: 6),
+                    banner,
+                  ],
+                ],
+              ),
+            ),
+
+            // Coordinates and buttons
+            Positioned(
+              bottom: 22,
               left: 12,
               right: 12,
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black87,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      hasDriverLocation
-                          ? 'GPS: ${currentDriverLat!.toStringAsFixed(4)}, ${currentDriverLng!.toStringAsFixed(4)}'
-                          : 'Dest: ${destinationLat.toStringAsFixed(4)}, ${destinationLng.toStringAsFixed(4)}',
+                      driver != null
+                          ? 'GPS: ${driver.latitude.toStringAsFixed(4)}, ${driver.longitude.toStringAsFixed(4)}'
+                          : 'Dest: ${widget.destinationLat.toStringAsFixed(4)}, ${widget.destinationLng.toStringAsFixed(4)}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 10,
@@ -174,28 +400,21 @@ class MapInsertionPoint extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  if (onOpenExternalMap != null)
+                  if (widget.onOpenExternalMap != null)
                     IconButton.filledTonal(
-                      onPressed: onOpenExternalMap,
+                      onPressed: widget.onOpenExternalMap,
                       icon: const Icon(Icons.open_in_new, size: 16),
                       tooltip: 'Open in External Navigation',
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.15),
-                        foregroundColor: Colors.white,
-                      ),
                     ),
-                  if (onRecenter != null) ...[
-                    const SizedBox(width: 8),
-                    IconButton.filledTonal(
-                      onPressed: onRecenter,
-                      icon: const Icon(Icons.my_location, size: 16),
-                      tooltip: 'Recenter to Driver',
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.15),
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ],
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    onPressed: () {
+                      widget.onRecenter?.call();
+                      _recenter();
+                    },
+                    icon: const Icon(Icons.my_location, size: 16),
+                    tooltip: 'Recenter to Driver',
+                  ),
                 ],
               ),
             ),
@@ -204,43 +423,4 @@ class MapInsertionPoint extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Lightweight decorative painter for the map preview background
-class _MapGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = Colors.white.withOpacity(0.04)
-      ..strokeWidth = 1.0;
-
-    const step = 28.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
-    }
-
-    // Decorative simulated arterial road
-    final roadPaint = Paint()
-      ..color = Colors.amber.withOpacity(0.25)
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()
-      ..moveTo(0, size.height * 0.8)
-      ..quadraticBezierTo(
-        size.width * 0.45,
-        size.height * 0.6,
-        size.width * 0.5,
-        size.height * 0.5,
-      )
-      ..lineTo(size.width, size.height * 0.2);
-
-    canvas.drawPath(path, roadPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
