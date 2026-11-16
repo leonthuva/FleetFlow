@@ -1,0 +1,10 @@
+project_id = "fleetflow-proof-storage"
+
+[auth.third_party.firebase]
+enabled = true
+project_id = "fleetflow-dev-29e55"
+
+[functions.proof-broker]
+# Firebase JWTs are verified explicitly (RS256, issuer, audience, expiry and revocation).
+# This disables only the incompatible legacy Supabase JWT gateway check.
+verify_jwt = false

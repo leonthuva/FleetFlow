@@ -1,0 +1,18 @@
+{
+  "name": "fleetflow-proof-backend-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:policies": "node --test ../tests/policies.test.mjs",
+    "provision:claims": "node ../scripts/provision-firebase-claims.mjs",
+    "test:backend": "deno test -A --config ../functions/proof-broker/deno.json ../tests/broker_test.ts ../tests/auth_image_test.ts ../tests/http_test.ts ../tests/live_workflow_test.ts",
+    "check": "deno check --config ../functions/proof-broker/deno.json ../functions/proof-broker/index.ts",
+    "test:firestore": "deno test -A --config ../functions/proof-broker/deno.json ../tests/firestore_integration_test.ts"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "deno": "^2.9.6",
+    "firebase-admin": "^14.5.1",
+    "supabase": "^3.2.0"
+  }
+}

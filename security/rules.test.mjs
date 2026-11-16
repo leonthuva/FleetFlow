@@ -103,3 +103,20 @@ test('trips are UID-scoped read-only records until tracking writer approval',asy
  await assertFails(write('driver','trips/New',{driverId:'driver'}));
  await assertFails(write('manager','trips/New',{driverId:'driver'}));
 });
+
+test('proof intents, locks, verified evidence and completion are server-only even for managers',async()=>{
+ for(const actor of ['driver','manager']){
+  await assertFails(write(actor,'proofUploads/12345678-1234-4234-8234-123456789abc',{driverId:'driver',state:'pending'}));
+  await assertFails(write(actor,'proofUploadLocks/D1',{attemptId:'forged'}));
+  await assertFails(getDoc(doc(db(actor),'proofUploads/forged')));
+  await assertFails(write(actor,'deliveryProofs/D1',{driverId:'driver',verificationStatus:'verified',storageProvider:'supabase',storagePath:'driver/D1/forged.png'}));
+ }
+ await env.withSecurityRulesDisabled(async c=>{
+  await updateDoc(doc(c.firestore(),'deliveries/D1'),{status:'completed'});
+  await setDoc(doc(c.firestore(),'deliveryProofs/D1'),{driverId:'driver',verificationStatus:'verified',storageProvider:'supabase'});
+ });
+ await assertSucceeds(getDoc(doc(db('driver'),'deliveryProofs/D1')));
+ await assertSucceeds(getDoc(doc(db('manager'),'deliveryProofs/D1')));
+ await assertFails(getDoc(doc(db('other'),'deliveryProofs/D1')));
+ await assertFails(updateDoc(doc(db('manager'),'deliveryProofs/D1'),{storagePath:'replacement'}));
+});

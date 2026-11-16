@@ -22,9 +22,6 @@ service cloud.firestore {
       return signedIn() && role() == 'driver';
     }
 
-    // Fail closed until a reviewed secure proof storage pipeline is available.
-    function proofStorageReady() { return false; }
-
     function onlyChanged(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
@@ -32,7 +29,6 @@ service cloud.firestore {
     function driverTransition(deliveryId) {
       let current = resource.data.status;
       let next = request.resource.data.status;
-      let proofPath = /databases/$(database)/documents/deliveryProofs/$(deliveryId);
 
       return
         (current == 'assigned' && next == 'picked_up'
@@ -48,23 +44,12 @@ service cloud.firestore {
         (current == 'in_transit' && next == 'arrived'
           && onlyChanged(['status', 'arrivedAt', 'updatedAt'])
           && request.resource.data.arrivedAt == request.time
-          && request.resource.data.updatedAt == request.time)
-        ||
-        (proofStorageReady() && current == 'arrived' && next == 'completed'
-          && onlyChanged(['status', 'completedAt', 'proofPhotoUrl',
-                          'signatureNotes', 'updatedAt'])
-          && request.resource.data.completedAt is timestamp
-          && request.resource.data.updatedAt == request.time
-          && request.resource.data.proofPhotoUrl is string
-          && (existsAfter(proofPath) || exists(proofPath))
-          && getAfter(proofPath).data.driverId == request.auth.uid
-          && getAfter(proofPath).data.photoUrl == request.resource.data.proofPhotoUrl);
+          && request.resource.data.updatedAt == request.time);
     }
 
     function managerUpdate(deliveryId) {
       let current = resource.data.status;
       let next = request.resource.data.status;
-      let proofPath = /databases/$(database)/documents/deliveryProofs/$(deliveryId);
 
       return
         (current == next
@@ -82,16 +67,7 @@ service cloud.firestore {
           && request.resource.data.cancelledAt == request.time
           && request.resource.data.updatedAt == request.time
           && request.resource.data.cancelReason is string
-          && request.resource.data.cancelReason.size() > 0)
-        ||
-        (proofStorageReady() && current == 'arrived' && next == 'completed'
-          && onlyChanged(['status', 'completedAt', 'proofPhotoUrl',
-                          'signatureNotes', 'updatedAt'])
-          && request.resource.data.completedAt is timestamp
-          && request.resource.data.updatedAt == request.time
-          && request.resource.data.proofPhotoUrl is string
-          && (existsAfter(proofPath) || exists(proofPath))
-          && getAfter(proofPath).data.photoUrl == request.resource.data.proofPhotoUrl);
+          && request.resource.data.cancelReason.size() > 0);
     }
 
     match /users/{uid} {
@@ -141,20 +117,12 @@ service cloud.firestore {
       allow read: if isManager()
         || (isDriver() && resource.data.driverId == request.auth.uid);
 
-      allow create: if proofStorageReady() && isDriver()
-        && request.resource.data.driverId == request.auth.uid
-        && !exists(/databases/$(database)/documents/deliveryProofs/$(deliveryId))
-        && get(/databases/$(database)/documents/deliveries/$(deliveryId)).data.status == 'arrived'
-        && get(/databases/$(database)/documents/deliveries/$(deliveryId)).data.driverId == request.auth.uid
-        && request.resource.data.photoUrl is string
-        && request.resource.data.storagePath is string
-        && request.resource.data.timestamp is timestamp
-        && request.resource.data.capturedLocation is map
-        && request.resource.data.capturedLocation.lat is number
-        && request.resource.data.capturedLocation.lng is number;
-
-      allow update, delete: if isAdmin();
+      // Only the trusted verification broker may write immutable proof evidence.
+      allow create, update, delete: if false;
     }
+
+    match /proofUploads/{attemptId} { allow read, write: if false; }
+    match /proofUploadLocks/{deliveryId} { allow read, write: if false; }
 
     match /trips/{tripId} {
       allow read: if isManager()

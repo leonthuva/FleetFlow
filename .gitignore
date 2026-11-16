@@ -55,3 +55,12 @@ security/node_modules/
 
 # Generated Kotlin compiler state
 android/.kotlin/
+
+# Supabase local tooling and credentials
+supabase/tooling/node_modules/
+supabase/.temp/
+supabase/.branches/
+supabase/secrets/
+.env*
+!supabase/.env.example
+!supabase/tooling/package-lock.json
