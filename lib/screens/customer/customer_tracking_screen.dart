@@ -18,8 +18,9 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.deliveryId != null)
+    if (widget.deliveryId != null) {
       stream = service.watchDelivery(widget.deliveryId!);
+    }
   }
 
   @override
@@ -46,8 +47,9 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
               stream: stream,
               builder: (context, s) {
                 if (s.hasError) return Text('Delivery unavailable: ${s.error}');
-                if (s.connectionState == ConnectionState.waiting)
+                if (s.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final d = s.data;
                 if (d == null) return const Text('Delivery not found');
                 return Column(
@@ -55,13 +57,16 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     children: [
                       Text(d.id),
                       Text(d.statusDisplayName),
+                      if (d.cancelReason != null)
+                        Text('Cancellation reason: ${d.cancelReason}'),
                       Text(d.address),
                       if (d.isCompleted)
                         StreamBuilder<DeliveryProof?>(
                             stream: service.watchProof(d.id),
                             builder: (context, p) {
-                              if (p.hasError)
+                              if (p.hasError) {
                                 return Text('Proof unavailable: ${p.error}');
+                              }
                               final proof = p.data;
                               return proof == null
                                   ? const Text('No proof record available')

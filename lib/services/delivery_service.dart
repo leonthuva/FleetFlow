@@ -24,7 +24,6 @@ class DeliveryService {
   final Map<String, Delivery> _cache = {};
   List<Delivery> get currentDeliveries => List.unmodifiable(_cache.values);
   Delivery? getDeliveryById(String id) => _cache[id];
-  DeliveryProof? getProofForDelivery(String id) => null;
   CollectionReference<Map<String, dynamic>> get _deliveries =>
       firestore.collection('deliveries');
   Stream<List<Delivery>> get deliveriesStream => watchDeliveries();
@@ -88,9 +87,10 @@ class DeliveryService {
       final value = (count.data()?['value'] as int? ?? 0) + 1;
       final id = 'DEL-${value.toString().padLeft(4, '0')}';
       final target = _deliveries.doc(id);
-      if ((await tx.get(target)).exists)
+      if ((await tx.get(target)).exists) {
         throw StateError(
             'Delivery counter conflicts with an existing ID. Administrator repair required.');
+      }
       tx.set(counter, {'value': value});
       tx.set(target, {
         ...draft.copyWith(id: id, status: DeliveryStatus.assigned).toMap(),
@@ -120,10 +120,12 @@ class DeliveryService {
       final snap = await tx.get(ref);
       if (!snap.exists) throw StateError('Delivery not found.');
       final current = Delivery.fromMap(snap.data()!, documentId: snap.id);
-      if (user.data()?['role'] != 'driver' || current.driverId != uid)
+      if (user.data()?['role'] != 'driver' || current.driverId != uid) {
         throw StateError('This delivery is not assigned to you.');
-      if (!current.canTransitionTo(newStatus))
+      }
+      if (!current.canTransitionTo(newStatus)) {
         throw StateError('Invalid delivery stage transition.');
+      }
       final field = {
         DeliveryStatus.pickedUp: 'pickedUpAt',
         DeliveryStatus.inTransit: 'inTransitAt',
@@ -161,14 +163,16 @@ class DeliveryService {
   }
 
   Future<void> cancel(String id, String reason) async {
-    if (reason.trim().isEmpty)
+    if (reason.trim().isEmpty) {
       throw ArgumentError('Cancellation reason required.');
+    }
     await firestore.runTransaction((tx) async {
       await _requireManager(tx);
       final ref = _deliveries.doc(id);
       final snap = await tx.get(ref);
-      if (!snap.exists || !Delivery.fromMap(snap.data()!).isActive)
+      if (!snap.exists || !Delivery.fromMap(snap.data()!).isActive) {
         throw StateError('Only active deliveries may be cancelled.');
+      }
       tx.update(ref, {
         'status': DeliveryStatus.cancelled,
         'cancelReason': reason.trim(),

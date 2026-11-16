@@ -134,9 +134,10 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
     return ListenableBuilder(
       listenable: _authProvider,
       builder: (context, _) {
-        if (_authProvider.isLoading)
+        if (_authProvider.isLoading) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
+        }
         if (!_authProvider.isAuthenticated) {
           return LoginScreen(authProvider: _authProvider);
         }

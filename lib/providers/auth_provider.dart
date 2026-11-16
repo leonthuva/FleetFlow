@@ -51,9 +51,10 @@ class AuthProvider extends ChangeNotifier {
 
   AppUser _parse(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
-    if (data == null || !UserRole.all.contains(data['role']))
+    if (data == null || !UserRole.all.contains(data['role'])) {
       throw StateError(
           'Your account has no approved role. Contact your administrator.');
+    }
     return AppUser.fromMap(data, documentId: doc.id);
   }
 
