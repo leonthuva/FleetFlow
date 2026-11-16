@@ -1,7 +1,16 @@
 class VehicleStatus {
   static const String available = 'available';
-  static const String inUse = 'in-use';
+  static const String inUse = 'in_use';
   static const String maintenance = 'maintenance';
+
+  static const all = [available, inUse, maintenance];
+
+  static String displayName(String status) => switch (status) {
+        available => 'Available',
+        inUse => 'In use',
+        maintenance => 'Maintenance',
+        _ => status,
+      };
 }
 
 class Vehicle {
@@ -30,7 +39,10 @@ class Vehicle {
       id: documentId ?? map['id'] as String? ?? '',
       licensePlate: map['licensePlate'] as String? ?? '',
       model: map['model'] as String? ?? '',
-      status: map['status'] as String? ?? VehicleStatus.available,
+      // Read the original spelling, but write the T4 canonical status.
+      status: map['status'] == 'in-use'
+          ? VehicleStatus.inUse
+          : map['status'] as String? ?? VehicleStatus.available,
       type: map['type'] as String? ?? 'Delivery Van',
       currentOdometerKm: (map['currentOdometerKm'] as num?)?.toDouble(),
     );
@@ -38,7 +50,6 @@ class Vehicle {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'licensePlate': licensePlate,
       'model': model,
       'status': status,

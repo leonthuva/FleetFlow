@@ -3,15 +3,21 @@ import 'package:flutter/material.dart';
 import '../../models/delivery.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/delivery_service.dart';
+import '../../services/vehicle_service.dart';
 import '../../core/tracking_code.dart';
 import 'create_delivery_screen.dart';
+import 'vehicle_management_tab.dart';
 import '../customer/customer_tracking_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final AuthProvider authProvider;
   final DeliveryService? service;
+  final VehicleService? vehicleService;
   const AdminDashboardScreen(
-      {super.key, required this.authProvider, this.service});
+      {super.key,
+      required this.authProvider,
+      this.service,
+      this.vehicleService});
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
@@ -20,6 +26,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _index = 0;
   late final DeliveryService _service = widget.service ?? DeliveryService();
   late final Stream<List<Delivery>> _stream = _service.watchDeliveries();
+  late final VehicleService _vehicleService = widget.vehicleService ??
+      VehicleService(
+          firestore: _service.firestore,
+          currentUid: () => widget.authProvider.currentUser?.id);
+  Widget _managementDirectory() => _index == 2
+      ? VehicleManagementTab(service: _vehicleService)
+      : _directory();
   Future<void> _create() async {
     try {
       final docs = await _service.firestore
@@ -78,12 +91,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   onPressed: () => widget.authProvider.signOut(),
                   icon: const Icon(Icons.logout))
             ]),
-            floatingActionButton: FloatingActionButton.extended(
-                onPressed: _create,
-                label: const Text('Create delivery'),
-                icon: const Icon(Icons.add)),
+            floatingActionButton: _index == 2
+                ? null
+                : FloatingActionButton.extended(
+                    onPressed: _create,
+                    label: const Text('Create delivery'),
+                    icon: const Icon(Icons.add)),
             body: _index == 1 || _index == 2
-                ? _directory()
+                ? _managementDirectory()
                 : StreamBuilder<List<Delivery>>(
                     stream: _stream,
                     builder: (context, snapshot) {
