@@ -45,10 +45,11 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        icon: const Icon(Icons.camera_alt_outlined, size: 48, color: Colors.deepOrange),
+        icon: const Icon(Icons.camera_alt_outlined,
+            size: 48, color: Colors.deepOrange),
         title: const Text('Camera Permission Required'),
         content: const Text(
-          'FleetFlow requires camera access to take a photo as Proof of Delivery (POD) for customer handover verification. The image will be securely uploaded to verify order completion.',
+          'FleetFlow uses the camera to preview handover evidence. Secure upload is currently unavailable, so this photo cannot complete a delivery.',
         ),
         actions: [
           TextButton(
@@ -81,14 +82,14 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
         maxWidth: 1600,
       );
 
-      if (photo != null) {
+      if (photo != null && mounted) {
         setState(() {
           _capturedImage = photo;
           _uploadError = null;
         });
       }
     } catch (e) {
-      debugPrint('Camera error: $e. Falling back to option dialog.');
+      debugPrint('Camera unavailable: $e');
       if (mounted) {
         _showImageSourceSheet();
       }
@@ -102,23 +103,15 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
         imageQuality: 85,
       );
 
-      if (photo != null) {
+      if (photo != null && mounted) {
         setState(() {
           _capturedImage = photo;
           _uploadError = null;
         });
       }
     } catch (e) {
-      setState(() => _uploadError = 'Could not select photo: $e');
+      if (mounted) setState(() => _uploadError = 'Could not select photo: $e');
     }
-  }
-
-  void _useDemoSamplePhoto() {
-    // Quick fallback helper for emulators without camera
-    setState(() {
-      _capturedImage = XFile('https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80');
-      _uploadError = null;
-    });
   }
 
   void _showImageSourceSheet() {
@@ -149,14 +142,6 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                   _pickFromGallery();
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.art_track),
-                title: const Text('Use Demo Sample Photo (Emulator Mode)'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _useDemoSamplePhoto();
-                },
-              ),
             ],
           ),
         ),
@@ -178,64 +163,34 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
     });
 
     try {
-      File? fileToUpload;
-      if (!kIsWeb && !_capturedImage!.path.startsWith('http')) {
-        fileToUpload = File(_capturedImage!.path);
-      }
-
+      final bytes = await _capturedImage!.readAsBytes();
+      if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024)
+        throw StateError('Photo must be between 1 byte and 5 MiB.');
+      final jpeg = bytes.length > 2 &&
+          bytes[0] == 255 &&
+          bytes[1] == 216 &&
+          bytes[2] == 255;
+      final png = bytes.length > 7 &&
+          bytes[0] == 137 &&
+          bytes[1] == 80 &&
+          bytes[2] == 78 &&
+          bytes[3] == 71;
+      final webp = bytes.length > 11 &&
+          String.fromCharCodes(bytes.take(4)) == 'RIFF' &&
+          String.fromCharCodes(bytes.skip(8).take(4)) == 'WEBP';
+      if (!jpeg && !png && !webp)
+        throw StateError('Choose a JPEG, PNG or WebP photo.');
       await _deliveryService.submitProofOfDelivery(
-        deliveryId: widget.delivery.id,
-        photoFile: fileToUpload,
-        location: {
-          'lat': 37.7749,
-          'lng': -122.4194,
-          'address': widget.delivery.destination,
-        },
-        notes: _notesController.text.trim(),
-        recipientName: _recipientController.text.trim().isNotEmpty
-            ? _recipientController.text.trim()
-            : widget.delivery.customerName,
-      );
-
-      if (mounted) {
-        setState(() => _isUploading = false);
-        _showSuccessDialog();
-      }
+          deliveryId: widget.delivery.id,
+          photoBytes: bytes,
+          location: {},
+          notes: _notesController.text.trim(),
+          recipientName: _recipientController.text.trim());
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isUploading = false;
-          _uploadError = 'Failed to submit proof: $e';
-        });
-      }
+      if (mounted) setState(() => _uploadError = e.toString());
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.check_circle, size: 56, color: Colors.green),
-        title: const Text('Delivery Completed!'),
-        content: Text(
-          'Proof of Delivery for Order ${widget.delivery.id} was uploaded successfully. Status updated to Delivered and manager notified.',
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // dismiss dialog
-              if (widget.onCompleted != null) {
-                widget.onCompleted!();
-              } else {
-                Navigator.of(context).pop(); // dismiss proof screen
-              }
-            },
-            child: const Text('Finish'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -250,6 +205,11 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Card(
+                  child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                          'Secure proof upload is unavailable. Capture and preview are local only; delivery completion is blocked.'))),
               // Delivery Overview Card
               Card(
                 elevation: 0,
@@ -264,10 +224,12 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                         children: [
                           Text(
                             widget.delivery.id,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.amber.shade100,
                               borderRadius: BorderRadius.circular(12),
@@ -292,12 +254,14 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.location_on, size: 16, color: Colors.deepOrange),
+                          const Icon(Icons.location_on,
+                              size: 16, color: Colors.deepOrange),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               widget.delivery.destination,
-                              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                              style: TextStyle(
+                                  color: Colors.grey.shade700, fontSize: 13),
                             ),
                           ),
                         ],
@@ -311,7 +275,10 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
               // Image Capture / Preview Area
               Text(
                 'Photo Evidence *',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               if (_capturedImage == null)
@@ -328,16 +295,19 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.camera_enhance_outlined, size: 54, color: Colors.deepOrange.shade400),
+                        Icon(Icons.camera_enhance_outlined,
+                            size: 54, color: Colors.deepOrange.shade400),
                         const SizedBox(height: 12),
                         const Text(
                           'Tap to Capture Handover Photo',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Doorstep, recipient handover, or signed docket',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600),
                         ),
                       ],
                     ),
@@ -386,7 +356,8 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                   labelText: 'Received By (Optional)',
                   hintText: 'e.g. John Doe (Customer / Receptionist)',
                   prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -397,7 +368,8 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                   labelText: 'Delivery Notes (Optional)',
                   hintText: 'e.g. Left at front porch as requested by customer',
                   prefixIcon: const Icon(Icons.notes_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
 
@@ -418,12 +390,16 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.check_circle_outline),
                 label: Text(
-                  _isUploading ? 'Uploading Proof...' : 'Confirm & Complete Delivery',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  _isUploading
+                      ? 'Uploading Proof...'
+                      : 'Confirm & Complete Delivery',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),

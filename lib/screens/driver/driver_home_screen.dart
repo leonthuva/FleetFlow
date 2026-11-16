@@ -78,6 +78,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               ],
             ),
             actions: [
+              IconButton(
+                  tooltip: 'Alerts',
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/notifications'),
+                  icon: const Icon(Icons.notifications_outlined)),
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 padding:

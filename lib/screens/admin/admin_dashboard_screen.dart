@@ -38,8 +38,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               builder: (_) =>
                   CreateDeliveryScreen(drivers: drivers, service: _service)));
       if (id != null && mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$id saved and assigned')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                _service.notificationWarning ?? '$id saved and assigned')));
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +59,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const Center(child: Text('Manager Authorization Required')));
         return Scaffold(
             appBar: AppBar(title: const Text('FleetFlow Operations'), actions: [
+              IconButton(
+                  tooltip: 'Alerts',
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/notifications'),
+                  icon: const Icon(Icons.notifications_outlined)),
               IconButton(
                   onPressed: () => widget.authProvider.signOut(),
                   icon: const Icon(Icons.logout))

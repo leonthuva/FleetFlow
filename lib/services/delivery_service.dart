@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/delivery.dart';
 import '../models/delivery_proof.dart';
+import 'notification_service.dart';
 
 /// One Firestore repository. Rules remain the authoritative security boundary.
 class DeliveryService {
@@ -19,6 +20,7 @@ class DeliveryService {
           ? FirebaseAuth.instance.currentUser?.uid
           : _currentUid()) ??
       (throw StateError('Sign in before accessing deliveries.'));
+  String? notificationWarning;
   final Map<String, Delivery> _cache = {};
   List<Delivery> get currentDeliveries => List.unmodifiable(_cache.values);
   Delivery? getDeliveryById(String id) => _cache[id];
@@ -72,7 +74,8 @@ class DeliveryService {
       throw ArgumentError(
           'Valid recipient, pickup, destination, coordinates, package and driver are required.');
     }
-    return firestore.runTransaction((tx) async {
+    notificationWarning = null;
+    final id = await firestore.runTransaction((tx) async {
       await _requireManager(tx);
       final driver =
           await tx.get(firestore.collection('users').doc(draft.driverId));
@@ -98,6 +101,9 @@ class DeliveryService {
       });
       return id;
     });
+    await _notify(
+        recipientId: draft.driverId, deliveryId: id, status: 'assigned');
+    return id;
   }
 
   Future<Delivery> updateStatus(
@@ -131,8 +137,27 @@ class DeliveryService {
       });
       return current.copyWith(status: newStatus);
     });
+    await _notify(
+        recipientId: 'all_managers', deliveryId: deliveryId, status: newStatus);
     _cache[deliveryId] = result;
     return result;
+  }
+
+  Future<void> _notify(
+      {required String recipientId,
+      required String deliveryId,
+      required String status}) async {
+    notificationWarning = null;
+    try {
+      await NotificationService(firestore: _db, currentUid: _currentUid)
+          .sendNotification(
+              recipientId: recipientId,
+              message: 'Delivery $deliveryId status: $status',
+              type: status == 'assigned' ? 'assignment' : 'status_change',
+              metadata: {'deliveryId': deliveryId, 'status': status});
+    } catch (e) {
+      notificationWarning = 'Delivery saved, but the in-app alert failed: $e';
+    }
   }
 
   Future<void> cancel(String id, String reason) async {

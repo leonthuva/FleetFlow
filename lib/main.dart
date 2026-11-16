@@ -55,12 +55,13 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
     _authProvider = widget.authProvider ?? (AuthProvider()..start());
     _driverProvider = widget.driverProvider ?? DriverProvider();
     _authProvider.addListener(_syncDriver);
-    _syncDriver();
     _notificationProvider =
         widget.notificationProvider ?? NotificationProvider();
+    _syncDriver();
   }
 
   void _syncDriver() {
+    _notificationProvider.bindUser(_authProvider.currentUser?.id);
     _driverProvider.bindUser(_authProvider.currentUser?.isDriver == true
         ? _authProvider.currentUser!.id
         : null);

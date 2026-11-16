@@ -33,7 +33,8 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(success
-            ? 'Delivery stage saved'
+            ? widget.driverProvider.notificationWarning ??
+                'Delivery stage saved'
             : widget.driverProvider.errorMessage ?? 'Update failed')));
   }
 
@@ -85,7 +86,6 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                   destinationLng: delivery.longitude,
                   destinationAddress: delivery.address,
                   isNavigationActive: delivery.isInTransit,
-
                 ),
                 const SizedBox(height: 16),
 

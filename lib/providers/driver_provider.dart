@@ -27,6 +27,7 @@ class DriverProvider extends ChangeNotifier {
   bool _disposed = false;
   int _session = 0;
   final Set<String> _pending = {};
+  String? get notificationWarning => _service.notificationWarning;
   bool get isLoading => _loading;
   bool isUpdating(String id) => _pending.contains(id);
   void bindUser(String? uid) {
