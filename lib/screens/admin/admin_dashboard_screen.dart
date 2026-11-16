@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/history_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../customer/customer_tracking_screen.dart';
+import '../history/manager_history_tab.dart';
 import '../notifications/notifications_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final AuthProvider authProvider;
+  final HistoryProvider? historyProvider;
 
   const AdminDashboardScreen({
     super.key,
     required this.authProvider,
+    this.historyProvider,
   });
 
   @override
@@ -346,6 +350,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               _buildDriversTab(context),
               _buildVehiclesTab(context),
               _buildDeliveriesTab(context),
+              if (widget.historyProvider != null)
+                ManagerHistoryTab(
+                  historyProvider: widget.historyProvider!,
+                  user: user,
+                ),
             ],
           ),
           bottomNavigationBar: NavigationBar(
@@ -355,27 +364,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _currentIndex = index;
               });
             },
-            destinations: const [
-              NavigationDestination(
+            destinations: [
+              const NavigationDestination(
                 icon: Icon(Icons.dashboard_outlined),
                 selectedIcon: Icon(Icons.dashboard),
                 label: 'Dashboard',
               ),
-              NavigationDestination(
+              const NavigationDestination(
                 icon: Icon(Icons.people_alt_outlined),
                 selectedIcon: Icon(Icons.people_alt),
                 label: 'Drivers',
               ),
-              NavigationDestination(
+              const NavigationDestination(
                 icon: Icon(Icons.directions_car_outlined),
                 selectedIcon: Icon(Icons.directions_car),
                 label: 'Vehicles',
               ),
-              NavigationDestination(
+              const NavigationDestination(
                 icon: Icon(Icons.local_shipping_outlined),
                 selectedIcon: Icon(Icons.local_shipping),
                 label: 'Deliveries',
               ),
+              if (widget.historyProvider != null)
+                const NavigationDestination(
+                  icon: Icon(Icons.history_outlined),
+                  selectedIcon: Icon(Icons.history),
+                  label: 'Trip History',
+                ),
             ],
           ),
         );
@@ -393,6 +408,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Vehicle Inventory';
       case 3:
         return 'Delivery Dispatch';
+      case 4:
+        return 'Trip History';
       default:
         return 'Operations';
     }

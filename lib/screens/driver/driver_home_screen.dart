@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/delivery.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/driver_provider.dart';
+import '../../providers/history_provider.dart';
+import '../history/trip_history_screen.dart';
 import '../../widgets/driver/safety_telematics_insertion_point.dart';
 import 'assigned_jobs_screen.dart';
 import 'delivery_detail_screen.dart';
@@ -10,11 +12,13 @@ import 'shift_summary_screen.dart';
 class DriverHomeScreen extends StatefulWidget {
   final AuthProvider? authProvider;
   final DriverProvider? driverProvider;
+  final HistoryProvider? historyProvider;
 
   const DriverHomeScreen({
     super.key,
     this.authProvider,
     this.driverProvider,
+    this.historyProvider,
   });
 
   @override
@@ -484,6 +488,31 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
           ),
         ),
+        if (widget.historyProvider != null) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () {
+                final user = widget.authProvider?.currentUser;
+                if (user == null || !user.isDriver) return;
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => TripHistoryScreen(
+                    historyProvider: widget.historyProvider!,
+                    user: user,
+                  ),
+                ));
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history),
+                  SizedBox(width: 8),
+                  Text('History'),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

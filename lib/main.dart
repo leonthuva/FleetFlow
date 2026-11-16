@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'core/app_config.dart';
 import 'providers/auth_provider.dart';
 import 'providers/driver_provider.dart';
+import 'providers/history_provider.dart';
 import 'providers/notification_provider.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -10,9 +13,11 @@ import 'screens/driver/assigned_jobs_screen.dart';
 import 'screens/driver/driver_home_screen.dart';
 import 'screens/driver/shift_summary_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/history/trip_history_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'services/firebase_service.dart';
 import 'services/notification_service.dart';
+import 'services/trip_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +30,7 @@ class FleetFlowApp extends StatefulWidget {
   final AuthProvider? authProvider;
   final DriverProvider? driverProvider;
   final NotificationProvider? notificationProvider;
+  final HistoryProvider? historyProvider;
   final Widget? home;
 
   const FleetFlowApp({
@@ -32,6 +38,7 @@ class FleetFlowApp extends StatefulWidget {
     this.authProvider,
     this.driverProvider,
     this.notificationProvider,
+    this.historyProvider,
     this.home,
   });
 
@@ -43,13 +50,21 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
   late final AuthProvider _authProvider;
   late final DriverProvider _driverProvider;
   late final NotificationProvider _notificationProvider;
+  late final HistoryProvider _historyProvider;
 
   @override
   void initState() {
     super.initState();
     _authProvider = widget.authProvider ?? AuthProvider();
     _driverProvider = widget.driverProvider ?? DriverProvider();
-    _notificationProvider = widget.notificationProvider ?? NotificationProvider();
+    _notificationProvider =
+        widget.notificationProvider ?? NotificationProvider();
+    _historyProvider = widget.historyProvider ??
+        HistoryProvider(
+          service: AppConfig.demoMode
+              ? TripService.localDemo()
+              : TripService.firestore(instance: FirebaseFirestore.instance),
+        );
   }
 
   @override
@@ -63,10 +78,14 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
       home: widget.home ?? _buildAuthGate(),
       routes: {
         '/login': (context) => LoginScreen(authProvider: _authProvider),
-        '/admin': (context) => AdminDashboardScreen(authProvider: _authProvider),
+        '/admin': (context) => AdminDashboardScreen(
+              authProvider: _authProvider,
+              historyProvider: _historyProvider,
+            ),
         '/driver-home': (context) => DriverHomeScreen(
               authProvider: _authProvider,
               driverProvider: _driverProvider,
+              historyProvider: _historyProvider,
             ),
         '/driver/jobs': (context) => AssignedJobsScreen(
               driverProvider: _driverProvider,
@@ -74,10 +93,20 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
         '/driver/shift-summary': (context) => ShiftSummaryScreen(
               driverProvider: _driverProvider,
             ),
-        '/driver/hub': (context) => HomeScreen(authProvider: _authProvider),
+        '/driver/hub': (context) => HomeScreen(
+              authProvider: _authProvider,
+              historyProvider: _historyProvider,
+            ),
         '/notifications': (context) => NotificationsScreen(
               notificationProvider: _notificationProvider,
             ),
+        '/history': (context) {
+          final user = _authProvider.currentUser;
+          return user == null
+              ? LoginScreen(authProvider: _authProvider)
+              : TripHistoryScreen(
+                  historyProvider: _historyProvider, user: user);
+        },
         '/customer-tracking': (context) => const CustomerTrackingScreen(),
       },
     );
@@ -93,11 +122,15 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
 
         final user = _authProvider.currentUser;
         if (user != null && user.isManager) {
-          return AdminDashboardScreen(authProvider: _authProvider);
+          return AdminDashboardScreen(
+            authProvider: _authProvider,
+            historyProvider: _historyProvider,
+          );
         } else {
           return DriverHomeScreen(
             authProvider: _authProvider,
             driverProvider: _driverProvider,
+            historyProvider: _historyProvider,
           );
         }
       },

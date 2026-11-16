@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/delivery.dart';
 import '../providers/auth_provider.dart';
+import '../providers/history_provider.dart';
 import '../providers/notification_provider.dart';
 import '../services/delivery_service.dart';
 import 'customer/customer_tracking_screen.dart';
@@ -10,8 +11,9 @@ import 'proof/proof_of_delivery_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final AuthProvider? authProvider;
+  final HistoryProvider? historyProvider;
 
-  const HomeScreen({super.key, this.authProvider});
+  const HomeScreen({super.key, this.authProvider, this.historyProvider});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -105,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(
                   builder: (context) => DriverHomeScreen(
                     authProvider: widget.authProvider,
+                    historyProvider: widget.historyProvider,
                   ),
                 ),
               );
