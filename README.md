@@ -1,3 +1,5 @@
+> Task 16 update: private Supabase proof upload, trusted verification/completion and secure viewing are implemented for review. Hosted security deployment, approved account claims and real device end-to-end testing remain pending. See [Task 16 setup and verified limits](docs/SUPABASE_PROOF_INTEGRATION.md).
+
 > Integration status (2026-11-16): the cumulative implementation is under review in [PR #15](https://github.com/leonthuva/FleetFlow/pull/15). See [verified progress and blockers](docs/INTEGRATION_PROGRESS.md). Real Email/Password authentication was tested with a temporary account; privileged Firestore workflows remain blocked by role provisioning and reviewed rule deployment. Secure proof upload/completion, trusted FCM sending, background tracking and production signing are incomplete. Historical demo milestones below are not end-to-end acceptance evidence.
 
 # FleetFlow 🚚📦

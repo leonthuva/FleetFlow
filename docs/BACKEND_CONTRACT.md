@@ -1269,3 +1269,18 @@ Required delta before PR 0:
 Section 8 (A1–A12) is **recommended** for approval on 2026-11-15. Section 9 (U1–U12) remains tracked for team assignment. PR 0 may proceed with the recommended defaults for rule drafts only after the team accepts this document. Unresolved choices must be settled before PR 2/PR 4/PR 6. No one merges a feature branch before PR 0 lands. No rules are deployed before PR 2/PR 6 and the console check.
 
 **BACKEND CONTRACT V1.1 READY FOR APPROVAL.**
+
+
+## Task 16 proposed v1.2 proof addendum — pending explicit acceptance
+
+This addendum supersedes the v1.1 Firebase Storage/public URL proof assumptions only after team acceptance and approved deployment. All other identity, role and lifecycle requirements remain in force. Full implementation and deployment gates: [SUPABASE_PROOF_INTEGRATION.md](SUPABASE_PROOF_INTEGRATION.md).
+
+- Firebase Authentication and Firestore remain authoritative. Firebase Spark is retained. Supabase Firebase integration uses a provisioned `role=authenticated` claim for database authorization; application roles remain in server-provisioned `users/{uid}`.
+- Private bucket `delivery-proofs`; immutable object identity `{uid}/{deliveryId}/{uploadId}.{jpg|png|webp}`. The trusted broker authorizes and verifies actual decoded bytes/digest against a durable expiring upload intent. Only the assigned authorized driver at `arrived` can submit. Size <=5,000,000 bytes; <=4,000,000 pixels; supported real JPEG/PNG/WebP only.
+- `deliveryProofs/{deliveryId}` schemaVersion 2: deliveryId, driverId, uploadId, storageProvider=`supabase`, bucket, storagePath, sha256, mimeType, sizeBytes, width, height, verificationStatus=`verified`, verifiedAt/timestamp/createdAt server timestamps, optional capturedAt, capturedLocation, notes, recipientName, notificationWarning. No public or signed image URL is persisted. Missing capture location is `{}`, not zero coordinates. Client capture metadata does not establish ownership or verification.
+- The trusted broker alone creates proofs and atomically transitions arrived -> completed with completedAt/updatedAt, proofId, proofStorageProvider and proofStoragePath. Legacy proofPhotoUrl is set null. Clients, including managers, cannot directly write proof documents or mark a delivery completed. Existing canonical stage/cancellation restrictions remain.
+- `proofUploads/{uuid}` and `proofUploadLocks/{deliveryId}` are server-only. Attempts bind owner/delivery/path/type/size/hash, expire in 15 minutes and progress pending -> committed or cleanup -> cleaned. A delivery lock prevents competing attempts. SQL grants are server-only, immutable, expiring and closed before finalization. Retries reuse attempts; cleanup cannot delete committed evidence.
+- Only current manager/dispatcher or assigned driver may request a 60-second signed view through the broker. Raw client Storage read/update/delete is denied. Manager alerts use a server-provisioned target list and fresh role checks, never client-supplied recipients. FCM server delivery is not implied.
+- Admin-only paginated reconciliation must be operated periodically after approval. Hosted policies, broker packaging, least-privilege credentials, real accounts and device tests must pass before end-to-end readiness is claimed.
+
+Status: IMPLEMENTED FOR REVIEW; NOT ACCEPTED, NOT DEPLOYED, NOT VERIFIED END TO END.

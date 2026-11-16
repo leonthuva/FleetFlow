@@ -191,3 +191,14 @@ M6 final QA:
 - `security/rules.test.mjs`
 - `test/delivery_service_test.dart`
 - `test/driver_flow_test.dart`
+
+
+## Task 16 — Supabase private proofs (2026-11-16)
+
+Feature owner Baary (M5); integration/security owner Thuva (M6); implementation Codex under Thuva. Branch `feature/member5-supabase-proof`; PR and commit receipt recorded in `TASK16_DELIVERY_REPORT.md`.
+
+Implemented: Firebase token bridge, actual private image upload, server verification/atomic Firestore proof+completion, immutable evidence, retries/cleanup/reconciliation, private manager view and in-app completion alerts. Firebase Storage dependency removed. No billing upgrade.
+
+Tested locally: Flutter analyze clean; 53 Flutter tests; 19 broker/auth/decoder/HTTP tests; 8 PostgreSQL RLS tests; 2 claim provisioning tests; 15 Firestore rules tests; 1 real Firestore REST emulator transaction test. Live: 3 anonymous denial/non-disclosure checks only. Full authenticated cross-provider test remains explicitly skipped/blocked.
+
+Verified dashboard: private `delivery-proofs`, configured MIME/5 MB restrictions, Firebase third-party authentication enabled. No hosted SQL, function, Firebase rules or claim deployment performed. Contract v1.2 addendum is proposed, pending acceptance. Device proof/camera/GPS validation and production signing remain pending. See `SUPABASE_PROOF_INTEGRATION.md` for exact release gates.
