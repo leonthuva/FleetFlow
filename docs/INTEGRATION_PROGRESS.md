@@ -1,57 +1,71 @@
-# FleetFlow integration progress — 2026-11-16
+# FleetFlow delivery report — 2026-11-16
 
-The implementation is ready for review, not end-to-end release. Codex implemented the changes for Thuva using the existing configured Thuva identity. Original teammate commits and branches are preserved. No force pushes, billing changes, rule deployments or privileged account provisioning were performed. One temporary unprivileged authentication QA account was created and immediately deleted.
+A release-mode review APK was built and signature-verified. The full application is not accepted end-to-end: live privileged Firestore flows, secure proof upload/completion and full Android workflow tests remain blocked. No Firebase rules/indexes were deployed and no billing plan was changed.
 
-| Owner | Branch | Feature commit | PR | Local validation |
+## Repository and contribution state
+
+Repository: https://github.com/leonthuva/FleetFlow . Integration branch: codex/security-integration-qa. Final code/build revision c00ca3e passed GitHub Actions run 43875247473; later synchronization merge cb9c6ab changed no tested file contents. Main was last fetched at 4fa76e0. See GitHub for any subsequent teammate actions.
+
+| Feature owner | Branch | Feature commits | PR | Last verified state |
 |---|---|---|---|---|
-| Thuva M6 | feature/firestore-delivery-service | 36f17a9 | [9](https://github.com/leonthuva/FleetFlow/pull/9) | 14 repository/date tests passed |
-| Aasif M1 | feature/member1-firebase | eab9e5b, 8df74ae | [10](https://github.com/leonthuva/FleetFlow/pull/10) | 6 auth/dashboard/smoke tests and 2 form tests passed |
-| Gajanan M2 | feature/member2-firestore-driver | 0cf2e03 | [11](https://github.com/leonthuva/FleetFlow/pull/11) | 7 driver/model tests passed |
-| Nippuni M3 | feature/member3-map-integration | 718e3b8, original ef04bf8 preserved | [12](https://github.com/leonthuva/FleetFlow/pull/12) | 10 map/driver tests passed |
-| Baary M5 | feature/member5-proof-notifications | 4c7691c | [13](https://github.com/leonthuva/FleetFlow/pull/13) | 6 proof/alerts/tracking tests passed |
-| Aadhil M4 | feature/member4-history-integration | 2caedcd | [14](https://github.com/leonthuva/FleetFlow/pull/14) | 3 history integration tests passed |
-| Thuva integration/QA | codex/security-integration-qa | see current HEAD | [15](https://github.com/leonthuva/FleetFlow/pull/15) | Full Flutter and emulator suite, build and CI below |
+| Thuva M6 backend | feature/firestore-delivery-service | 36f17a9 | [9](https://github.com/leonthuva/FleetFlow/pull/9) | Merged externally |
+| Aasif M1 auth/manager | feature/member1-firebase | eab9e5b, 8df74ae | [10](https://github.com/leonthuva/FleetFlow/pull/10) | Merged externally |
+| Gajanan M2 driver | feature/member2-firestore-driver | 0cf2e03 | [11](https://github.com/leonthuva/FleetFlow/pull/11) | Merged externally |
+| Nippuni M3 maps | feature/member3-map-integration | 718e3b8; original ef04bf8 preserved | [12](https://github.com/leonthuva/FleetFlow/pull/12) | Merged externally; original PR #8 also merged |
+| Baary M5 proof/alerts | feature/member5-proof-notifications | 4c7691c | [13](https://github.com/leonthuva/FleetFlow/pull/13) | Merged externally |
+| Aadhil M4 history/safety | feature/member4-history-integration | 2caedcd | [14](https://github.com/leonthuva/FleetFlow/pull/14) | Open for review |
+| Thuva M6 final integration | codex/security-integration-qa | aff8b98, c00ca3e; current branch includes documentation/synchronization commits | [15](https://github.com/leonthuva/FleetFlow/pull/15) | Open for review; both code/build CI jobs passed |
 
-Actual implementer for all new feature commits: Codex for Thuva. Aasif's preserved form was adapted from feature/member1-latest. Aadhil's models and UI were adapted from feature/member4-history; its fallback services and display-name ownership were excluded. See each commit's changed-file list and PR diff for the exact files. New branches keep owner-specific review work separate without rewriting existing feature branches. The branches are cumulative dependencies; review them in table order, then merge the final QA corrections before deploying any Firebase configuration.
+Actual implementer of new feature commits: Codex for Thuva, using Thuva's existing configured Git identity. Aasif's form was restored/adapted from feature/member1-latest; Aadhil's read-only history model/UI slice was adapted from feature/member4-history. Their original branches and commits remain intact. Nippuni's original commit was preserved through a merge. No impersonated authorship, history rewrite, force push, reviewer impersonation or main-branch PR merge was performed by this agent. The merges shown above occurred through external actions while this agent worked. CONTRIBUTING.md requires another member approval before merge; GitHub reported no enforced main branch protection. Reviewers were explicitly requested on every new PR.
 
-PR #9 was observed merged by leonthuva into main at 5f3c0ef during this session. The agent did not execute that merge. No approving team review was observed. PRs #10–14 remain open and mergeable at the latest check. Original map PR #8 remains open and has been integrated only into the review branch. CONTRIBUTING.md requires another member's approval before merge even though the GitHub API reports main has no branch protection.
+## Implemented behavior
 
-## Implemented and tested locally
+- One Firestore delivery repository: live all/driver/single/proof streams, document-ID identity, canonical Timestamp parsing, eligible driver UID assignment, transactional DEL counter allocation, persisted stage progression and manager cancellation with audit fields. No production seed jobs or swallowed persistence errors remain.
+- Real Firebase Email/Password integration and authoritative users/{uid} role resolution, including revocation/error handling, session navigation reset and private subscription cleanup on logout. No email-derived or caller-selected manager role.
+- Aasif's manager form now validates recipient/pickup/destination/package/coordinates and saves through that repository. Real driver/vehicle directories, metrics, status monitoring and cancellation replace fixtures. Eligible drivers require an administrator-provisioned role and onShift=true; the transaction rechecks eligibility.
+- Driver assignments are UID-filtered, asynchronous stage writes reject skipped/backward/terminal transitions, duplicate taps are blocked, real assigned vehicle documents are displayed, and arrived jobs open camera proof capture. Shift timing is explicitly local session state.
+- Nippuni's real OSM map and attribution, one-position foreground GPS, permission denial/service-off handling and resume recheck. No persistent location, route recording, background tracking or sensor safety scores are claimed.
+- Camera capture/preview/retake and JPEG/PNG/WebP signature/5 MiB validation. Cloud upload and completion fail explicitly while secure storage is unavailable. Fake images, dummy upload URLs and false success messages were removed.
+- Firestore in-app alerts use concrete recipients, approved manager targets and individual readBy receipts. Assignment/stage persistence completes before alert sending; a notification failure is visible without falsely rolling back a saved delivery. Manual assistance requests are tied to delivery ownership. No trusted FCM push sender or emergency dispatch is claimed.
+- Completed/cancelled delivery history for managers and drivers; UID-scoped read-only trip history, filters, details and summaries adapted from Aadhil's UI. Display-name ownership and fixture fallback services were excluded. No approved trip writer exists, so final rules deny trip writes.
+- GitHub workflow runs analysis, tests, emulator authorization tests and release APK creation/upload. It contains no deployment step or credentials. Generated Kotlin state is ignored. Unrelated analysis_options.yaml and untracked AGENTS.md are preserved and excluded from commits.
 
-- Canonical Firestore delivery streams, document IDs and Timestamp serialization; transactional DEL counter allocation, real driver eligibility, assigned-driver lifecycle and manager cancellation. Errors propagate; no sample success is substituted.
-- Real Firebase Email/Password integration and users/{uid} role resolution; role changes revoke UI access; session navigation resets and driver/alert subscriptions clear on logout. Auth and Firestore fakes verify the integration code; these are not live Firebase account tests.
-- Manager form restored from Aasif's branch, with required recipient/pickup/destination/package fields, validated coordinates and a real UID driver directory. The directory requires an administrator-provisioned driver role and onShift=true.
-- Real OSM destination/foreground GPS widget, permission handling and resume recheck. No location persistence, background route recording, telematics score or continuous tracking is implemented.
-- Camera capture, preview and retake UI; JPEG/PNG/WebP signature and 5 MiB validation. Upload services fail explicitly and completion is blocked in app and rules while secure storage is unavailable.
-- Firestore in-app alerts with approved concrete manager targets and individual readBy receipts. Assignment and stage writes complete before alert sending; failures are visible and do not falsely roll back saved deliveries. No trusted FCM sender exists.
-- Completed/cancelled delivery history and UID-scoped read-only trip history, filters, details and summaries. Trip writing is denied in the final rules because no tracking writer has been approved. Old name-keyed trip data requires an approved migration; no sample fallback runs.
-- Local shift controls and vehicle display remain available and are labelled as local session timing. Vehicle directory reads are live; driver/vehicle account provisioning and CRUD are not completed.
-- In-app manager assistance requests tied to assigned delivery ownership. No emergency dispatch or sensor safety monitoring is claimed.
+## Verified tests and build
 
-## Validation evidence
+| Verification | Result |
+|---|---|
+| flutter pub get | Passed |
+| flutter analyze | Passed, no issues |
+| flutter test | 43 passed |
+| Firestore emulator authorization suite | 14 passed with JDK 21, demo-fleetflow, official rules-unit-testing SDK |
+| Live Firebase Authentication | Temporary unprivileged QA account created, signed in and immediately deleted; credentials existed only in process memory |
+| Live authenticated role read | 403 PERMISSION_DENIED; no role/delivery documents provisioned |
+| GitHub Actions 43875247473 | Both flutter and firestore-rules passed; Flutter job included release APK build |
+| flutter build apk --release | Passed, including final lower-memory build in 103.9 seconds |
+| APK signature/package | v2 signature verifies; Android Debug certificate; com.fleetflow.fleet_flow, version 1.0.0 (1), minSdk 24, targetSdk 36 |
+| Android emulator | Dedicated FleetFlow_QA created from installed Android 37.1 image; final APK installed successfully and am start -W returned Status: ok, COLD, MainActivity |
+| Android visual check | Actual sign-in screen rendered; System UI showed an ANR dialog. A subsequent validation capture was black, so login interaction and full device acceptance are not verified. |
 
-- flutter pub get: passed.
-- flutter analyze: passed, no issues after lint cleanup.
-- flutter test: 43 tests passed, including final audit-field and live vehicle-profile regressions.
-- Firestore emulator: 14 authorization tests passed using JDK 21 and demo-fleetflow. Tests exercise unauthenticated denial, manager/driver reads, valid stages, skip/backward/terminal denial, ownership/reassignment/cancellation denial, role escalation and provisioning, proof fail-closed behavior, bounded manager-only counter operations, recipient targeting/read receipt isolation, a positive atomic manager create/allocation transaction, forged stage timestamp denial, existing-proof completion bypass denial and read-only trip ownership.
-- The first security suite exposed five weaknesses in the old draft; all were fixed and the expanded suite passed. Expected PERMISSION_DENIED log entries are negative-test results.
-- Early map test compilation and a form viewport test failed and were corrected; no known failing Flutter tests remain.
-- flutter doctor: installed Flutter 3.47.4/Dart 3.13.3; Android SDK 36.0.0 reported with some unaccepted licenses. Chrome missing and Windows C++ components incomplete; neither is required for Android APK compilation.
-- flutter devices: Windows and Edge only. flutter emulators: no configured emulators. Manual Android login, GPS, camera and workflow testing was not possible.
-- Firebase CLI login:list: no authorized accounts. A temporary unprivileged QA account was created, signed in using real Firebase Email/Password, and deleted immediately. Its role-document read returned 403 PERMISSION_DENIED. No manager/driver role documents or deliveries were created. Live privileged workflow verification and rule inspection remain blocked.
-- GitHub workflow verifies Flutter analysis/tests, emulator tests and builds a review APK artifact. It contains no deployment step and no server credentials.
+Authorization tests cover unauthenticated denial, manager/driver query boundaries, valid stages, skips/backwards/terminal rejection, ownership/reassignment/cancellation, self-provisioning and escalation denial, proof fail-closed behavior including existing forged references, bounded manager-only counters, positive atomic create/allocation, server timestamps, notification targeting/read-receipt isolation and UID-scoped read-only trips. The first suite exposed five weaknesses in the draft, all corrected. Early form viewport and map-test API errors were corrected; no known failing Flutter tests remain.
 
-## Deployment and external blockers
+APK: build/app/outputs/flutter-apk/app-release.apk, 56,703,362 bytes (about 54.1 MiB).
 
-Live Firebase rules were reported deny-all by the coordinator and were not changed. Emulator success does not prove live integration. Reviewed rule deployment and real manager/driver test accounts are required before the Firestore flows can work against production. Counter authority, role provisioning and manager target-list ownership remain provisional pending team acceptance. Initial counter allocation begins at DEL-0001 only for a new counter; collisions are rejected and require administrator repair, never a client reset.
+SHA-256: 65A9913EB5F67100C90BA608AADA6B31B84C5912BE3E491229318FC1AC6E4B1E
 
-Secure proof storage and completion remain blocked. Firebase documents the Blaze requirement for Cloud Storage: https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024 . Firestore inline images would require changing the approved proof schema and imposing a much smaller cap than 5 MiB because documents are limited to 1 MiB (https://firebase.google.com/docs/firestore/quotas). Chunked images or an external provider would require a new reviewed ownership, authorization, cleanup and storage design; no such account/backend was provided or authorized. No alternative was silently introduced.
+The initial build failed on malformed installed NDK source.properties spacing. The original is backed up in .git/ndk-source.properties.before; only spacing was repaired, preserving revision 28.2.13676358. CMake 3.22.1 was installed by the Android build using an already accepted license. The laptop has about 8 GB RAM; Gradle previously requested an 8 GB heap plus 4 GB metadata. The project now uses 2 GB heap, 768 MiB metadata, two workers and in-process Kotlin compilation. Some Android SDK licenses remain unaccepted; the successful build required no bulk license acceptance.
 
-No rules or indexes were deployed. Active queries use a single equality/array-contains constraint and sort/filter locally, avoiding a new composite-index deployment for the implemented screens. Existing composite index definitions remain undeployed and unverified live. Storage cross-service rules are an existing draft and were not bucket-tested. The unavailable storage path is not production-ready.
+The old AVD creator wrote target=android-0 for the installed 37.1 image, causing a SurfaceFlinger/RegionSampling crash loop and package-service broken pipes before installation. Correcting only the dedicated QA AVD target to android-37.1 allowed installation and a successful cold activity launch. The host has limited RAM and the emulator System UI remains unstable; a physical-device acceptance pass is still required.
 
-Release signing currently uses the repository's existing Android debug signing configuration. Any release APK produced is suitable for review installation, not a production-signed store release. See the final delivery report for the exact build result and artifact path.
+## Unfinished and release-gated work
 
-## Reproduce
+1. Firebase CLI has no authorized account. Live rules were reported deny-all and were not changed. Manager/driver role provisioning, notificationTargets/managers, reviewed rule deployment, and live create/read/update verification remain required. Emulator tests are not a substitute for those checks.
+2. Proof storage/completion is blocked by the storage/billing decision. Firebase documents the Blaze requirement: https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024 . Firestore inline photos would change the proof schema and require a much smaller cap because documents are limited to 1 MiB: https://firebase.google.com/docs/firestore/quotas . Chunking or an external provider requires a separately approved ownership/authorization/cleanup design; no such backend/account was provided. No workaround silently weakens proof security.
+3. No Firebase rules or indexes were deployed. Implemented queries use a single equality/array-contains constraint with local sorting/filtering, so these screens introduce no new composite-index dependency. Existing index definitions and Storage cross-service rules remain undeployed and unverified live.
+4. Trusted FCM server sending, background tracking/trip recording, sensor safety functions, persistent shift records, account/vehicle provisioning CRUD and migration of legacy name-based trip records are incomplete. Counter authority and target-list maintenance remain provisional contract decisions.
+5. Real manager/driver Android login, assignment, status, GPS, camera, proof and history acceptance tests remain incomplete. No physical Android phone is connected. The APK uses the repository's debug release-signing configuration and is a review-installation artifact, not a production-signed store release.
+6. PRs #14 and #15 still require another member's review at the last check. No human approval was inferred or bypassed.
+
+## Reproduce local verification
 
 ```powershell
 flutter pub get
@@ -64,16 +78,116 @@ firebase emulators:exec --only firestore --project demo-fleetflow "npm --prefix 
 flutter build apk --release
 ```
 
-The unrelated analysis_options.yaml change and untracked AGENTS.md are preserved and excluded from commits. Prompt/output archives are written outside the repository as required by AGENTS.md.
+## Exact changed files by workstream
 
-The first release build failed because the installed NDK source.properties omitted the spaces required by its own CMake parser. The file was backed up to .git/ndk-source.properties.before and spacing was repaired without changing revision 28.2.13676358. A release-build retry is in progress. The system already contains Android 37.1 images and usable WHPX acceleration; a dedicated headless QA AVD is being attempted. These are environment changes, not Firebase deployment.
+M6 backend:
 
-Final QA implementation commit: aff8b98. Integration synchronized with origin/main using merge commit 6b06002, preserving the externally merged PR #9. GitHub rules CI passed on that revision; Flutter/APK CI and local APK retry were still running at this log update.
+- `lib/models/delivery.dart`
+- `lib/models/delivery_proof.dart`
+- `lib/services/delivery_service.dart`
+- `lib/services/storage_service.dart`
+- `pubspec.lock`
+- `pubspec.yaml`
+- `test/delivery_service_test.dart`
+- `test/proof_notification_customer_test.dart`
 
-## APK build verification
+M1 authentication/manager:
 
-The release retry succeeded, producing build/app/outputs/flutter-apk/app-release.apk (56,703,362 bytes, about 54.1 MiB). The final build with the revised memory budget also succeeded in 103.9 seconds. Android package is com.fleetflow.fleet_flow, version 1.0.0 (1), minSdk 24, targetSdk 36. apksigner verified the v2 signature; certificate is Android Debug, as configured in the repository. SHA-256 at inspection: 65A9913EB5F67100C90BA608AADA6B31B84C5912BE3E491229318FC1AC6E4B1E.
+- `lib/main.dart`
+- `lib/providers/auth_provider.dart`
+- `lib/screens/admin/admin_dashboard_screen.dart`
+- `lib/screens/admin/create_delivery_screen.dart`
+- `lib/screens/auth/login_screen.dart`
+- `lib/services/firebase_service.dart`
+- `test/auth_navigation_test.dart`
+- `test/manager_form_test.dart`
+- `test/widget_test.dart`
 
-The laptop has about 8 GB RAM. Gradle previously requested an 8 GB heap plus 4 GB metadata, causing severe memory pressure during native compilation and emulator boot. android/gradle.properties now uses a 2 GB heap, 768 MiB metadata, two workers and in-process Kotlin compilation. Idle build daemons were stopped before retrying the headless emulator. This does not change app runtime behavior.
+M2 driver:
 
-GitHub Actions run 43873292897 passed both jobs including APK build. The duplicate push run was cancelled; the workflow now runs on PRs and pushes to main only. More recent documentation/build-setting revisions are checked by the latest PR run.
+- `lib/main.dart`
+- `lib/providers/driver_provider.dart`
+- `lib/screens/driver/assigned_jobs_screen.dart`
+- `lib/screens/driver/delivery_detail_screen.dart`
+- `lib/screens/driver/driver_home_screen.dart`
+- `lib/screens/driver/shift_summary_screen.dart`
+- `test/driver_flow_test.dart`
+
+M3 map integration:
+
+- `lib/screens/driver/delivery_detail_screen.dart`
+- `lib/widgets/driver/map_insertion_point.dart`
+- `test/map_location_test.dart`
+
+M5 proof/alerts:
+
+- `lib/main.dart`
+- `lib/models/app_notification.dart`
+- `lib/providers/driver_provider.dart`
+- `lib/providers/notification_provider.dart`
+- `lib/screens/admin/admin_dashboard_screen.dart`
+- `lib/screens/customer/customer_tracking_screen.dart`
+- `lib/screens/driver/delivery_detail_screen.dart`
+- `lib/screens/driver/driver_home_screen.dart`
+- `lib/screens/notifications/notifications_screen.dart`
+- `lib/screens/proof/proof_of_delivery_screen.dart`
+- `lib/services/delivery_service.dart`
+- `lib/services/notification_service.dart`
+- `lib/widgets/driver/camera_pod_insertion_point.dart`
+- `test/proof_notification_customer_test.dart`
+
+M4 history/safety:
+
+- `lib/main.dart`
+- `lib/models/trip.dart`
+- `lib/models/trip_summary.dart`
+- `lib/providers/history_provider.dart`
+- `lib/screens/admin/admin_dashboard_screen.dart`
+- `lib/screens/driver/delivery_detail_screen.dart`
+- `lib/screens/driver/driver_home_screen.dart`
+- `lib/screens/driver/shift_summary_screen.dart`
+- `lib/screens/history/delivery_history_screen.dart`
+- `lib/screens/history/history_formatters.dart`
+- `lib/screens/history/history_page.dart`
+- `lib/screens/history/manager_history_tab.dart`
+- `lib/screens/history/trip_detail_screen.dart`
+- `lib/screens/history/trip_history_screen.dart`
+- `lib/screens/history/trip_widgets.dart`
+- `lib/screens/home_screen.dart`
+- `lib/services/trip_service.dart`
+- `lib/widgets/driver/safety_telematics_insertion_point.dart`
+- `test/history_integration_test.dart`
+
+M6 final QA:
+
+- `.github/workflows/verify.yml`
+- `.gitignore`
+- `README.md`
+- `android/gradle.properties`
+- `docs/INTEGRATION_PROGRESS.md`
+- `firestore.rules`
+- `lib/main.dart`
+- `lib/models/delivery.dart`
+- `lib/models/trip.dart`
+- `lib/models/vehicle.dart`
+- `lib/providers/auth_provider.dart`
+- `lib/providers/driver_provider.dart`
+- `lib/providers/notification_provider.dart`
+- `lib/screens/admin/admin_dashboard_screen.dart`
+- `lib/screens/auth/login_screen.dart`
+- `lib/screens/customer/customer_tracking_screen.dart`
+- `lib/screens/driver/assigned_jobs_screen.dart`
+- `lib/screens/driver/delivery_detail_screen.dart`
+- `lib/screens/driver/driver_home_screen.dart`
+- `lib/screens/history/delivery_history_screen.dart`
+- `lib/screens/notifications/notifications_screen.dart`
+- `lib/screens/proof/proof_of_delivery_screen.dart`
+- `lib/services/delivery_service.dart`
+- `lib/services/notification_service.dart`
+- `lib/services/trip_service.dart`
+- `lib/widgets/driver/safety_telematics_insertion_point.dart`
+- `security/package-lock.json`
+- `security/package.json`
+- `security/rules.test.mjs`
+- `test/delivery_service_test.dart`
+- `test/driver_flow_test.dart`
