@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fleet_flow/screens/admin/create_delivery_screen.dart';
 void main(){
  testWidgets('empty eligible directory disables assignment',(tester)async{
+  tester.view.physicalSize=const Size(1080,2200);tester.view.devicePixelRatio=1;addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home:CreateDeliveryScreen(drivers:[])));
   expect(find.text('No on-shift drivers available'),findsOneWidget);
   final button=tester.widget<FilledButton>(find.byType(FilledButton));expect(button.onPressed,isNull);
