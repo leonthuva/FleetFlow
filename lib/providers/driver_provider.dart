@@ -1,23 +1,58 @@
+import 'dart:async';
+import '../services/delivery_service.dart';
 import 'package:flutter/foundation.dart';
 import '../models/delivery.dart';
 import '../models/vehicle.dart';
 
 class DriverProvider extends ChangeNotifier {
-  bool _isShiftActive = true;
-  DateTime? _shiftStartTime = DateTime.now().subtract(const Duration(hours: 3, minutes: 25));
+  bool _isShiftActive = false;
+  DateTime? _shiftStartTime;
   DateTime? _shiftEndTime;
   Vehicle _activeVehicle = const Vehicle(
-    id: 'veh_01',
-    licensePlate: 'FLT-882-CA',
-    model: 'Ford Transit 350 High Roof',
+    id: '',
+    licensePlate: 'Unassigned',
+    model: 'No assigned vehicle',
     status: VehicleStatus.inUse,
   );
 
   List<Delivery> _deliveries = [];
   String? _errorMessage;
 
-  DriverProvider() {
-    _seedInitialDeliveries();
+  DriverProvider({DeliveryService? service})
+      : _service = service ?? DeliveryService();
+  final DeliveryService _service;
+  StreamSubscription<List<Delivery>>? _subscription;
+  String? _uid;
+  bool _loading = false;
+  bool _disposed = false;
+  int _session = 0;
+  final Set<String> _pending = {};
+  bool get isLoading => _loading;
+  bool isUpdating(String id) => _pending.contains(id);
+  void bindUser(String? uid) {
+    if (uid == _uid) return;
+    _uid = uid;
+    final session = ++_session;
+    _subscription?.cancel();
+    _deliveries = [];
+    _errorMessage = null;
+    _pending.clear();
+    _loading = uid != null;
+    if (uid != null) {
+      _subscription = _service.watchDeliveries(driverId: uid).listen((items) {
+        if (_disposed || session != _session) return;
+        _deliveries = items;
+        _loading = false;
+        notifyListeners();
+      }, onError: (Object e) {
+        if (_disposed || session != _session) return;
+        _deliveries = [];
+        _errorMessage = 'Assignments unavailable: $e';
+        _loading = false;
+        notifyListeners();
+      });
+    }
+    notifyListeners();
   }
 
   // Getters
@@ -43,8 +78,9 @@ class DriverProvider extends ChangeNotifier {
   int get totalAssigned => _deliveries.length;
   int get completedCount => _deliveries.where((d) => d.isCompleted).length;
   int get pendingCount => _deliveries.where((d) => d.isAssigned).length;
-  int get inProgressCount =>
-      _deliveries.where((d) => d.isPickedUp || d.isInTransit || d.isArrived).length;
+  int get inProgressCount => _deliveries
+      .where((d) => d.isPickedUp || d.isInTransit || d.isArrived)
+      .length;
 
   double get completionRate =>
       totalAssigned > 0 ? (completedCount / totalAssigned) * 100 : 0.0;
@@ -91,138 +127,45 @@ class DriverProvider extends ChangeNotifier {
 
   /// Advance delivery to next lifecycle status:
   /// assigned -> picked_up -> in_transit -> arrived -> completed
-  bool advanceDeliveryStatus(String deliveryId) {
+  Future<bool> advanceDeliveryStatus(String deliveryId) async {
     final delivery = getDeliveryById(deliveryId);
-    if (delivery == null) {
-      _errorMessage = 'Delivery not found';
+    if (delivery?.nextStatus == null) {
+      _errorMessage = 'Delivery cannot advance';
       notifyListeners();
       return false;
     }
-
-    final targetStatus = delivery.nextStatus;
-    if (targetStatus == null) {
-      _errorMessage = 'Delivery is already completed or cannot advance';
-      notifyListeners();
-      return false;
-    }
-
-    return updateDeliveryStatus(deliveryId, targetStatus);
+    return updateDeliveryStatus(deliveryId, delivery!.nextStatus!);
   }
 
-  /// Explicit status transition with strict state machine validation
-  bool updateDeliveryStatus(String deliveryId, String newStatus) {
-    final index = _deliveries.indexWhere((d) => d.id == deliveryId);
-    if (index == -1) {
-      _errorMessage = 'Delivery $deliveryId not found';
-      notifyListeners();
-      return false;
-    }
-
-    final current = _deliveries[index];
-    if (!current.canTransitionTo(newStatus)) {
-      _errorMessage =
-          'Cannot transition status from "${current.status}" to "$newStatus".';
-      notifyListeners();
-      return false;
-    }
-
-    final now = DateTime.now();
-    _deliveries[index] = current.copyWith(
-      status: newStatus,
-      pickedUpAt: newStatus == DeliveryStatus.pickedUp ? now : current.pickedUpAt,
-      inTransitAt: newStatus == DeliveryStatus.inTransit ? now : current.inTransitAt,
-      arrivedAt: newStatus == DeliveryStatus.arrived ? now : current.arrivedAt,
-      completedAt: newStatus == DeliveryStatus.completed ? now : current.completedAt,
-    );
-
+  Future<bool> updateDeliveryStatus(String id, String status) async {
+    if (_pending.contains(id)) return false;
+    final session = _session;
+    _pending.add(id);
     _errorMessage = null;
     notifyListeners();
-    return true;
-  }
-
-  /// Record Proof-of-Delivery metadata (photo and signature note)
-  void attachProofOfDelivery(String deliveryId, String photoUrl, String signatureNotes) {
-    final index = _deliveries.indexWhere((d) => d.id == deliveryId);
-    if (index != -1) {
-      _deliveries[index] = _deliveries[index].copyWith(
-        proofPhotoUrl: photoUrl,
-        signatureNotes: signatureNotes,
-      );
-      notifyListeners();
+    try {
+      final updated =
+          await _service.updateStatus(deliveryId: id, newStatus: status);
+      if (_disposed || session != _session) return false;
+      final index = _deliveries.indexWhere((d) => d.id == id);
+      if (index >= 0) _deliveries[index] = updated;
+      return true;
+    } catch (e) {
+      if (!_disposed && session == _session) _errorMessage = e.toString();
+      return false;
+    } finally {
+      if (!_disposed && session == _session) {
+        _pending.remove(id);
+        notifyListeners();
+      }
     }
   }
 
-  /// Seed initial representative data for driver flows
-  void _seedInitialDeliveries() {
-    _deliveries = [
-      Delivery(
-        id: 'DEL-2041',
-        driverId: 'drv_01',
-        vehicleId: 'FLT-882-CA',
-        recipientName: 'Apex Health Logistics',
-        recipientPhone: '+1 (415) 892-1100',
-        address: '742 Evergreen Terrace, Sector 4, Springfield',
-        latitude: 37.7833,
-        longitude: -122.4167,
-        packageDescription: '2x Temperature-Controlled Medical Cases',
-        specialInstructions: 'Ring bell at Gate 2. Cold storage signature required.',
-        priority: 'urgent',
-        status: DeliveryStatus.inTransit,
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        pickedUpAt: DateTime.now().subtract(const Duration(hours: 1, minutes: 15)),
-        inTransitAt: DateTime.now().subtract(const Duration(minutes: 40)),
-      ),
-      Delivery(
-        id: 'DEL-2042',
-        driverId: 'drv_01',
-        vehicleId: 'FLT-882-CA',
-        recipientName: 'Metro Tech Hub (Reception)',
-        recipientPhone: '+1 (415) 555-0188',
-        address: '100 Market St, Suite 500, San Francisco, CA',
-        latitude: 37.7937,
-        longitude: -122.3965,
-        packageDescription: '1x IT Server Equipment & Cables',
-        specialInstructions: 'Security check-in at ground floor reception desk.',
-        priority: 'high',
-        status: DeliveryStatus.assigned,
-        createdAt: DateTime.now().subtract(const Duration(hours: 1, minutes: 30)),
-      ),
-      Delivery(
-        id: 'DEL-2043',
-        driverId: 'drv_01',
-        vehicleId: 'FLT-882-CA',
-        recipientName: 'Bay Coffee Roasters',
-        recipientPhone: '+1 (415) 321-7788',
-        address: '550 Valencia Street, Mission District, CA',
-        latitude: 37.7645,
-        longitude: -122.4214,
-        packageDescription: '4x Bulk Coffee Beans & Grinder Parts',
-        specialInstructions: 'Back alley loading dock. Call upon arrival.',
-        priority: 'standard',
-        status: DeliveryStatus.assigned,
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-      ),
-      Delivery(
-        id: 'DEL-2039',
-        driverId: 'drv_01',
-        vehicleId: 'FLT-882-CA',
-        recipientName: 'Sarah Jenkins',
-        recipientPhone: '+1 (415) 902-3341',
-        address: '320 14th Ave, Richmond District, CA',
-        latitude: 37.7812,
-        longitude: -122.4721,
-        packageDescription: '1x Fragile Home Goods Box',
-        specialInstructions: 'Leave with front porch locker if not home.',
-        priority: 'standard',
-        status: DeliveryStatus.completed,
-        proofPhotoUrl: 'https://storage.googleapis.com/fleetflow-dev/pod/DEL-2039.jpg',
-        signatureNotes: 'Left by front door as customer requested in delivery note.',
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-        pickedUpAt: DateTime.now().subtract(const Duration(hours: 3, minutes: 20)),
-        inTransitAt: DateTime.now().subtract(const Duration(hours: 3)),
-        arrivedAt: DateTime.now().subtract(const Duration(hours: 2, minutes: 30)),
-        completedAt: DateTime.now().subtract(const Duration(hours: 2, minutes: 20)),
-      ),
-    ];
+  @override
+  void dispose() {
+    _disposed = true;
+    ++_session;
+    _subscription?.cancel();
+    super.dispose();
   }
 }

@@ -46,14 +46,18 @@ class ShiftSummaryScreen extends StatelessWidget {
                 // Header Status Card
                 Card(
                   elevation: 3,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
                       gradient: LinearGradient(
                         colors: isShiftActive
                             ? [Colors.teal.shade700, Colors.teal.shade900]
-                            : [Colors.blueGrey.shade700, Colors.blueGrey.shade900],
+                            : [
+                                Colors.blueGrey.shade700,
+                                Colors.blueGrey.shade900
+                              ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -66,13 +70,16 @@ class ShiftSummaryScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                isShiftActive ? 'ACTIVE SHIFT' : 'SHIFT COMPLETED',
+                                isShiftActive
+                                    ? 'ACTIVE SHIFT'
+                                    : 'SHIFT COMPLETED',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -102,7 +109,8 @@ class ShiftSummaryScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           'Started at ${_formatTime(driverProvider.shiftStartTime)} • ${vehicle.model}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13),
                         ),
                       ],
                     ),
@@ -113,7 +121,8 @@ class ShiftSummaryScreen extends StatelessWidget {
                 // Deliveries Completion Scorecard
                 Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -132,11 +141,13 @@ class ShiftSummaryScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                           child: LinearProgressIndicator(
                             value: driverProvider.totalAssigned > 0
-                                ? driverProvider.completedCount / driverProvider.totalAssigned
+                                ? driverProvider.completedCount /
+                                    driverProvider.totalAssigned
                                 : 0,
                             minHeight: 10,
                             backgroundColor: Colors.grey.shade200,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade600),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.green.shade600),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -153,7 +164,8 @@ class ShiftSummaryScreen extends StatelessWidget {
                             ),
                             Text(
                               '${driverProvider.completedCount} of ${driverProvider.totalAssigned} Delivered',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                              style: TextStyle(
+                                  color: Colors.grey.shade600, fontSize: 12),
                             ),
                           ],
                         ),
@@ -162,10 +174,18 @@ class ShiftSummaryScreen extends StatelessWidget {
                         // Metrics Grid
                         Row(
                           children: [
-                            _buildSummaryItem('Total Assigned', '${driverProvider.totalAssigned}', Colors.blue),
-                            _buildSummaryItem('In Progress', '${driverProvider.inProgressCount}', Colors.deepOrange),
-                            _buildSummaryItem('Completed', '${driverProvider.completedCount}', Colors.green),
-                            _buildSummaryItem('Pending', '${driverProvider.pendingCount}', Colors.grey),
+                            _buildSummaryItem('Total Assigned',
+                                '${driverProvider.totalAssigned}', Colors.blue),
+                            _buildSummaryItem(
+                                'In Progress',
+                                '${driverProvider.inProgressCount}',
+                                Colors.deepOrange),
+                            _buildSummaryItem(
+                                'Completed',
+                                '${driverProvider.completedCount}',
+                                Colors.green),
+                            _buildSummaryItem('Pending',
+                                '${driverProvider.pendingCount}', Colors.grey),
                           ],
                         ),
                       ],
@@ -177,7 +197,8 @@ class ShiftSummaryScreen extends StatelessWidget {
                 // Telematics Safety Report (Contract Agreement for Member 3 & 5)
                 Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -185,7 +206,8 @@ class ShiftSummaryScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.health_and_safety_outlined, color: Colors.teal.shade700),
+                            Icon(Icons.health_and_safety_outlined,
+                                color: Colors.teal.shade700),
                             const SizedBox(width: 8),
                             Text(
                               'Telematics Safety Scorecard',
@@ -198,10 +220,10 @@ class ShiftSummaryScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           'Provided by smartphone sensors (Member 3 Provider / Member 5 Notifications)',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600),
                         ),
                         const SizedBox(height: 16),
-
                         Row(
                           children: [
                             Expanded(
@@ -213,7 +235,11 @@ class ShiftSummaryScreen extends StatelessWidget {
                                 ),
                                 child: Column(
                                   children: [
-                                    const Text('DRIVING SCORE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.teal)),
+                                    const Text('DRIVING SCORE',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.teal)),
                                     const SizedBox(height: 4),
                                     Text(
                                       '98/100',
@@ -223,7 +249,9 @@ class ShiftSummaryScreen extends StatelessWidget {
                                         color: Colors.teal.shade800,
                                       ),
                                     ),
-                                    const Text('Excellent', style: TextStyle(fontSize: 11, color: Colors.teal)),
+                                    const Text('Excellent',
+                                        style: TextStyle(
+                                            fontSize: 11, color: Colors.teal)),
                                   ],
                                 ),
                               ),
@@ -235,11 +263,16 @@ class ShiftSummaryScreen extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade50,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey.shade200),
+                                  border:
+                                      Border.all(color: Colors.grey.shade200),
                                 ),
                                 child: const Column(
                                   children: [
-                                    Text('HARSH EVENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                                    Text('HARSH EVENTS',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black54)),
                                     SizedBox(height: 4),
                                     Text(
                                       '0',
@@ -249,7 +282,9 @@ class ShiftSummaryScreen extends StatelessWidget {
                                         color: Colors.green,
                                       ),
                                     ),
-                                    Text('Zero Violations', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                    Text('Zero Violations',
+                                        style: TextStyle(
+                                            fontSize: 11, color: Colors.grey)),
                                   ],
                                 ),
                               ),
@@ -269,14 +304,16 @@ class ShiftSummaryScreen extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.red.shade700,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.timer_off),
                         SizedBox(width: 8),
-                        Text('End Shift & Clock Out', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('End Shift & Clock Out',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -285,7 +322,8 @@ class ShiftSummaryScreen extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text('Return to Active Deliveries'),
                   ),
@@ -298,11 +336,13 @@ class ShiftSummaryScreen extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start New Shift', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text('Start New Shift',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green.shade700,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ],
@@ -356,7 +396,8 @@ class ShiftSummaryScreen extends StatelessWidget {
               driverProvider.endShift();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Shift ended successfully. Telematics log recorded.'),
+                  content: Text(
+                      'Shift ended successfully. Telematics log recorded.'),
                   backgroundColor: Colors.blueGrey,
                 ),
               );

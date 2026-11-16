@@ -48,6 +48,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         final activeDelivery = _driverProvider.activeDelivery;
         final vehicle = _driverProvider.activeVehicle;
 
+        if (_driverProvider.isLoading)
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        if (_driverProvider.errorMessage != null)
+          return Scaffold(
+              appBar: AppBar(title: const Text('Driver assignments')),
+              body: Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(_driverProvider.errorMessage!),
+                TextButton(
+                    onPressed: () => widget.authProvider?.signOut(),
+                    child: const Text('Sign out'))
+              ])));
         return Scaffold(
           appBar: AppBar(
             title: Column(
@@ -55,7 +68,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               children: [
                 Text(
                   user?.displayName ?? 'Driver Portal',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   '${vehicle.model} (${vehicle.licensePlate})',
@@ -66,12 +80,17 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             actions: [
               Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isShiftActive ? Colors.green.shade50 : Colors.grey.shade200,
+                  color: isShiftActive
+                      ? Colors.green.shade50
+                      : Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isShiftActive ? Colors.green.shade600 : Colors.grey.shade500,
+                    color: isShiftActive
+                        ? Colors.green.shade600
+                        : Colors.grey.shade500,
                   ),
                 ),
                 child: Row(
@@ -91,7 +110,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: isShiftActive ? Colors.green.shade800 : Colors.grey.shade800,
+                        color: isShiftActive
+                            ? Colors.green.shade800
+                            : Colors.grey.shade800,
                       ),
                     ),
                   ],
@@ -208,12 +229,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isShiftActive ? Colors.green.shade50 : Colors.grey.shade100,
+                color:
+                    isShiftActive ? Colors.green.shade50 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 isShiftActive ? Icons.schedule : Icons.timer_off_outlined,
-                color: isShiftActive ? Colors.green.shade700 : Colors.grey.shade600,
+                color: isShiftActive
+                    ? Colors.green.shade700
+                    : Colors.grey.shade600,
                 size: 28,
               ),
             ),
@@ -223,8 +247,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isShiftActive ? 'Active Shift in Progress' : 'Currently Off Duty',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    isShiftActive
+                        ? 'Active Shift in Progress'
+                        : 'Currently Off Duty',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -249,7 +276,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 } else {
                   _driverProvider.startShift();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Shift started. Telematics & GPS ready.')),
+                    const SnackBar(
+                        content:
+                            Text('Shift started. Telematics & GPS ready.')),
                   );
                 }
               },
@@ -268,7 +297,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       elevation: 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.primary.withOpacity(0.3), width: 1.5),
+        side: BorderSide(
+            color: theme.colorScheme.primary.withOpacity(0.3), width: 1.5),
       ),
       child: Container(
         decoration: BoxDecoration(
@@ -289,20 +319,25 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.deepOrange.shade700,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
                     'ACTIVE JOB',
-                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   delivery.id,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 const Spacer(),
                 _buildStatusChip(delivery.status),
@@ -311,13 +346,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             const SizedBox(height: 12),
             Text(
               delivery.recipientName,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
+                const Icon(Icons.location_on_outlined,
+                    size: 16, color: Colors.grey),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -330,7 +367,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.inventory_2_outlined, size: 16, color: Colors.grey.shade600),
+                Icon(Icons.inventory_2_outlined,
+                    size: 16, color: Colors.grey.shade600),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -418,7 +456,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.bold, color: color),
           ),
           const SizedBox(height: 2),
           Text(
@@ -446,7 +485,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -472,7 +512,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -505,7 +546,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         },
         leading: CircleAvatar(
           backgroundColor: _getStatusColor(delivery.status).withOpacity(0.15),
-          child: Icon(_getStatusIcon(delivery.status), color: _getStatusColor(delivery.status), size: 20),
+          child: Icon(_getStatusIcon(delivery.status),
+              color: _getStatusColor(delivery.status), size: 20),
         ),
         title: Text(
           delivery.recipientName,
@@ -544,7 +586,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       ),
       child: Text(
         DeliveryStatus.displayName(status),
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        style:
+            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
   }

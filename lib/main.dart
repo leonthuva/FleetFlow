@@ -54,12 +54,21 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
     super.initState();
     _authProvider = widget.authProvider ?? (AuthProvider()..start());
     _driverProvider = widget.driverProvider ?? DriverProvider();
+    _authProvider.addListener(_syncDriver);
+    _syncDriver();
     _notificationProvider =
         widget.notificationProvider ?? NotificationProvider();
   }
 
+  void _syncDriver() {
+    _driverProvider.bindUser(_authProvider.currentUser?.isDriver == true
+        ? _authProvider.currentUser!.id
+        : null);
+  }
+
   @override
   void dispose() {
+    _authProvider.removeListener(_syncDriver);
     if (widget.authProvider == null) _authProvider.dispose();
     if (widget.driverProvider == null) _driverProvider.dispose();
     if (widget.notificationProvider == null) _notificationProvider.dispose();

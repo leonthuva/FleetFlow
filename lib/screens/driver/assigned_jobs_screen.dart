@@ -44,7 +44,8 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
     return ListenableBuilder(
       listenable: widget.driverProvider,
       builder: (context, _) {
-        final filteredList = _filterDeliveries(widget.driverProvider.deliveries);
+        final filteredList =
+            _filterDeliveries(widget.driverProvider.deliveries);
 
         return Scaffold(
           appBar: AppBar(
@@ -52,7 +53,8 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(60),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search by ID, recipient, or address...',
@@ -75,40 +77,51 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
               ),
             ),
           ),
-          body: Column(
-            children: [
-              // Status Filter Tabs
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    _buildFilterChip('all', 'All (${widget.driverProvider.totalAssigned})'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('active', 'Active (${widget.driverProvider.inProgressCount})'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('pending', 'Pending (${widget.driverProvider.pendingCount})'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('completed', 'Completed (${widget.driverProvider.completedCount})'),
-                  ],
-                ),
-              ),
+          body: widget.driverProvider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : widget.driverProvider.errorMessage != null
+                  ? Center(child: Text(widget.driverProvider.errorMessage!))
+                  : Column(
+                      children: [
+                        // Status Filter Tabs
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: Row(
+                            children: [
+                              _buildFilterChip('all',
+                                  'All (${widget.driverProvider.totalAssigned})'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('active',
+                                  'Active (${widget.driverProvider.inProgressCount})'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('pending',
+                                  'Pending (${widget.driverProvider.pendingCount})'),
+                              const SizedBox(width: 8),
+                              _buildFilterChip('completed',
+                                  'Completed (${widget.driverProvider.completedCount})'),
+                            ],
+                          ),
+                        ),
 
-              // Deliveries List
-              Expanded(
-                child: filteredList.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: filteredList.length,
-                        itemBuilder: (context, index) {
-                          final delivery = filteredList[index];
-                          return _buildDeliveryCard(context, delivery);
-                        },
-                      ),
-              ),
-            ],
-          ),
+                        // Deliveries List
+                        Expanded(
+                          child: filteredList.isEmpty
+                              ? _buildEmptyState()
+                              : ListView.builder(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  itemCount: filteredList.length,
+                                  itemBuilder: (context, index) {
+                                    final delivery = filteredList[index];
+                                    return _buildDeliveryCard(
+                                        context, delivery);
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
         );
       },
     );
@@ -127,7 +140,9 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
       selectedColor: Theme.of(context).colorScheme.primaryContainer,
       labelStyle: TextStyle(
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+        color: isSelected
+            ? Theme.of(context).colorScheme.onPrimaryContainer
+            : null,
       ),
     );
   }
@@ -139,7 +154,8 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
+            Icon(Icons.inventory_2_outlined,
+                size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
               'No Deliveries Found',
@@ -198,12 +214,14 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
                 children: [
                   Text(
                     delivery.id,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(width: 8),
                   if (delivery.priority == 'urgent')
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.red.shade100,
                         borderRadius: BorderRadius.circular(4),
@@ -219,7 +237,8 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
                     ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
@@ -241,7 +260,8 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
               // Recipient Name
               Text(
                 delivery.recipientName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
 
@@ -249,12 +269,14 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.place_outlined, size: 16, color: Colors.grey),
+                  const Icon(Icons.place_outlined,
+                      size: 16, color: Colors.grey),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       delivery.address,
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                      style:
+                          TextStyle(color: Colors.grey.shade700, fontSize: 13),
                     ),
                   ),
                 ],
@@ -264,12 +286,14 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
               // Package description
               Row(
                 children: [
-                  Icon(Icons.inventory_2_outlined, size: 16, color: Colors.grey.shade600),
+                  Icon(Icons.inventory_2_outlined,
+                      size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       delivery.packageDescription,
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style:
+                          TextStyle(color: Colors.grey.shade600, fontSize: 12),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
