@@ -69,3 +69,11 @@ The unrelated analysis_options.yaml change and untracked AGENTS.md are preserved
 The first release build failed because the installed NDK source.properties omitted the spaces required by its own CMake parser. The file was backed up to .git/ndk-source.properties.before and spacing was repaired without changing revision 28.2.13676358. A release-build retry is in progress. The system already contains Android 37.1 images and usable WHPX acceleration; a dedicated headless QA AVD is being attempted. These are environment changes, not Firebase deployment.
 
 Final QA implementation commit: aff8b98. Integration synchronized with origin/main using merge commit 6b06002, preserving the externally merged PR #9. GitHub rules CI passed on that revision; Flutter/APK CI and local APK retry were still running at this log update.
+
+## APK build verification
+
+The release retry succeeded, producing build/app/outputs/flutter-apk/app-release.apk (56,703,362 bytes, about 54.1 MiB). The final build with the revised memory budget also succeeded in 103.9 seconds. Android package is com.fleetflow.fleet_flow, version 1.0.0 (1), minSdk 24, targetSdk 36. apksigner verified the v2 signature; certificate is Android Debug, as configured in the repository. SHA-256 at inspection: 65A9913EB5F67100C90BA608AADA6B31B84C5912BE3E491229318FC1AC6E4B1E.
+
+The laptop has about 8 GB RAM. Gradle previously requested an 8 GB heap plus 4 GB metadata, causing severe memory pressure during native compilation and emulator boot. android/gradle.properties now uses a 2 GB heap, 768 MiB metadata, two workers and in-process Kotlin compilation. Idle build daemons were stopped before retrying the headless emulator. This does not change app runtime behavior.
+
+GitHub Actions run 43873292897 passed both jobs including APK build. The duplicate push run was cancelled; the workflow now runs on PRs and pushes to main only. More recent documentation/build-setting revisions are checked by the latest PR run.
