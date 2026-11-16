@@ -79,6 +79,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
             actions: [
               IconButton(
+                  tooltip: 'Delivery history',
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/delivery-history'),
+                  icon: const Icon(Icons.history)),
+              IconButton(
+                  tooltip: 'Trip history',
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/trip-history'),
+                  icon: const Icon(Icons.route_outlined)),
+              IconButton(
                   tooltip: 'Alerts',
                   onPressed: () =>
                       Navigator.pushNamed(context, '/notifications'),
@@ -153,7 +163,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   const SizedBox(height: 12),
 
                   // Telematics Safety Banner (Member 3 & 5 insertion point)
-                  const SafetyBannerWidget(safetyScore: 98, isSafe: true),
+                  const SafetyBannerWidget(),
                   const SizedBox(height: 16),
 
                   // Active Delivery Hero Section
@@ -175,7 +185,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Assigned Jobs Today',
+                        'Assigned Jobs',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -281,9 +291,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 } else {
                   _driverProvider.startShift();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text('Shift started. Telematics & GPS ready.')),
+                    const SnackBar(content: Text('Local shift started.')),
                   );
                 }
               },

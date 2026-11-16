@@ -9,7 +9,8 @@ import 'screens/customer/customer_tracking_screen.dart';
 import 'screens/driver/assigned_jobs_screen.dart';
 import 'screens/driver/driver_home_screen.dart';
 import 'screens/driver/shift_summary_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/history/history_page.dart';
+import 'screens/history/delivery_history_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'services/firebase_service.dart';
 
@@ -104,11 +105,19 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
                     _driverGuard(ShiftSummaryScreen(
                       driverProvider: _driverProvider,
                     )),
-                '/driver/hub': (context) =>
-                    HomeScreen(authProvider: _authProvider),
+                '/driver/hub': (context) => _driverGuard(DriverHomeScreen(
+                    authProvider: _authProvider,
+                    driverProvider: _driverProvider)),
                 '/notifications': (context) => NotificationsScreen(
                       notificationProvider: _notificationProvider,
                     ),
+                '/trip-history': (context) => _authProvider.currentUser == null
+                    ? LoginScreen(authProvider: _authProvider)
+                    : HistoryPage(user: _authProvider.currentUser!),
+                '/delivery-history': (context) => _authProvider.currentUser ==
+                        null
+                    ? LoginScreen(authProvider: _authProvider)
+                    : DeliveryHistoryScreen(user: _authProvider.currentUser!),
                 '/customer-tracking': (context) =>
                     const CustomerTrackingScreen(),
               },

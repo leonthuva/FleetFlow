@@ -56,19 +56,6 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
         return Scaffold(
           appBar: AppBar(
             title: Text(delivery.id),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.phone_outlined),
-                tooltip: 'Call Recipient',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(
-                            'Calling recipient at ${delivery.recipientPhone}...')),
-                  );
-                },
-              ),
-            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -95,11 +82,7 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
 
                 // 4. Agreed Safety & Telematics Insertion Point (Member 3 & 5)
                 if (delivery.isInTransit) ...[
-                  const SafetyTelematicsInsertionPoint(
-                    currentSpeedKmh: 46.0,
-                    speedLimitKmh: 50.0,
-                    safetyScore: 97,
-                  ),
+                  SafetyTelematicsInsertionPoint(deliveryId: delivery.id),
                   const SizedBox(height: 16),
                 ],
 
