@@ -48,3 +48,19 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Firebase authorization test dependencies
+security/node_modules/
+!security/package-lock.json
+
+# Generated Kotlin compiler state
+android/.kotlin/
+
+# Supabase local tooling and credentials
+supabase/tooling/node_modules/
+supabase/.temp/
+supabase/.branches/
+supabase/secrets/
+.env*
+!supabase/.env.example
+!supabase/tooling/package-lock.json

@@ -23,7 +23,7 @@ class NotificationProvider extends ChangeNotifier {
     _notifications = [];
     errorMessage = null;
     isLoading = uid != null;
-    if (uid != null)
+    if (uid != null) {
       _subscription = _service.watch(uid).listen((items) {
         if (session != _session) return;
         _notifications = items;
@@ -36,6 +36,7 @@ class NotificationProvider extends ChangeNotifier {
         isLoading = false;
         notifyListeners();
       });
+    }
     notifyListeners();
   }
 

@@ -13,11 +13,13 @@ import 'screens/history/history_page.dart';
 import 'screens/history/delivery_history_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'services/firebase_service.dart';
+import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await FirebaseService().initialize();
+    await SupabaseService.initialize();
     runApp(const FleetFlowApp());
   } catch (e) {
     runApp(MaterialApp(
@@ -134,9 +136,10 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
     return ListenableBuilder(
       listenable: _authProvider,
       builder: (context, _) {
-        if (_authProvider.isLoading)
+        if (_authProvider.isLoading) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
+        }
         if (!_authProvider.isAuthenticated) {
           return LoginScreen(authProvider: _authProvider);
         }

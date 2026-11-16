@@ -1,17 +1,28 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/delivery.dart';
 import '../models/delivery_proof.dart';
 import 'notification_service.dart';
+import 'storage_service.dart';
 
 /// One Firestore repository. Rules remain the authoritative security boundary.
 class DeliveryService {
   DeliveryService(
-      {FirebaseFirestore? firestore, String? Function()? currentUid})
+      {FirebaseFirestore? firestore,
+      String? Function()? currentUid,
+      StorageService? storage})
       : _db = firestore,
-        _currentUid = currentUid;
+        _currentUid = currentUid,
+        _storage = storage ?? StorageService();
+  final StorageService _storage;
+  bool get proofStorageAvailable => _storage.isConfigured;
+  Future<String> signedProofUrl(String deliveryId) =>
+      _storage.signedProofUrl(deliveryId);
+  Future<void> discardPendingProof(String deliveryId) =>
+      _storage.discardPending(deliveryId);
   final FirebaseFirestore? _db;
   final String? Function()? _currentUid;
   FirebaseFirestore get firestore => _db ?? FirebaseFirestore.instance;
@@ -24,7 +35,6 @@ class DeliveryService {
   final Map<String, Delivery> _cache = {};
   List<Delivery> get currentDeliveries => List.unmodifiable(_cache.values);
   Delivery? getDeliveryById(String id) => _cache[id];
-  DeliveryProof? getProofForDelivery(String id) => null;
   CollectionReference<Map<String, dynamic>> get _deliveries =>
       firestore.collection('deliveries');
   Stream<List<Delivery>> get deliveriesStream => watchDeliveries();
@@ -88,9 +98,10 @@ class DeliveryService {
       final value = (count.data()?['value'] as int? ?? 0) + 1;
       final id = 'DEL-${value.toString().padLeft(4, '0')}';
       final target = _deliveries.doc(id);
-      if ((await tx.get(target)).exists)
+      if ((await tx.get(target)).exists) {
         throw StateError(
             'Delivery counter conflicts with an existing ID. Administrator repair required.');
+      }
       tx.set(counter, {'value': value});
       tx.set(target, {
         ...draft.copyWith(id: id, status: DeliveryStatus.assigned).toMap(),
@@ -111,7 +122,7 @@ class DeliveryService {
     if ([DeliveryStatus.completed, DeliveryStatus.cancelled]
         .contains(newStatus)) {
       throw StateError(newStatus == DeliveryStatus.completed
-          ? 'Completion requires secure proof persistence. Proof storage is currently unavailable.'
+          ? 'Completion requires the trusted proof submission workflow.'
           : 'Use manager cancellation with a reason.');
     }
     final result = await firestore.runTransaction((tx) async {
@@ -120,10 +131,12 @@ class DeliveryService {
       final snap = await tx.get(ref);
       if (!snap.exists) throw StateError('Delivery not found.');
       final current = Delivery.fromMap(snap.data()!, documentId: snap.id);
-      if (user.data()?['role'] != 'driver' || current.driverId != uid)
+      if (user.data()?['role'] != 'driver' || current.driverId != uid) {
         throw StateError('This delivery is not assigned to you.');
-      if (!current.canTransitionTo(newStatus))
+      }
+      if (!current.canTransitionTo(newStatus)) {
         throw StateError('Invalid delivery stage transition.');
+      }
       final field = {
         DeliveryStatus.pickedUp: 'pickedUpAt',
         DeliveryStatus.inTransit: 'inTransitAt',
@@ -161,14 +174,16 @@ class DeliveryService {
   }
 
   Future<void> cancel(String id, String reason) async {
-    if (reason.trim().isEmpty)
+    if (reason.trim().isEmpty) {
       throw ArgumentError('Cancellation reason required.');
+    }
     await firestore.runTransaction((tx) async {
       await _requireManager(tx);
       final ref = _deliveries.doc(id);
       final snap = await tx.get(ref);
-      if (!snap.exists || !Delivery.fromMap(snap.data()!).isActive)
+      if (!snap.exists || !Delivery.fromMap(snap.data()!).isActive) {
         throw StateError('Only active deliveries may be cancelled.');
+      }
       tx.update(ref, {
         'status': DeliveryStatus.cancelled,
         'cancelReason': reason.trim(),
@@ -184,8 +199,58 @@ class DeliveryService {
       Uint8List? photoBytes,
       required Map<String, dynamic> location,
       String? notes,
-      String? recipientName}) async {
-    throw StateError(
-        'Secure proof storage is unavailable on the current Firebase plan. No proof was uploaded and the delivery was not completed.');
+      String? recipientName,
+      DateTime? capturedAt}) async {
+    if (!_storage.isConfigured) {
+      throw StateError(
+          'Secure Supabase proof storage is not configured. No proof was uploaded and the delivery was not completed.');
+    }
+    final actor = uid;
+    final user = await firestore.collection('users').doc(actor).get();
+    final snap = await _deliveries.doc(deliveryId).get();
+    if (!snap.exists ||
+        user.data()?['role'] != 'driver' ||
+        snap.data()?['driverId'] != actor) {
+      throw StateError('Only the assigned driver may submit proof.');
+    }
+    final bytes = photoBytes ?? await photoFile?.readAsBytes();
+    if (bytes == null) throw ArgumentError('Capture a proof photograph first.');
+    if (snap.data()?['status'] == DeliveryStatus.completed) {
+      final existing =
+          await firestore.collection('deliveryProofs').doc(deliveryId).get();
+      if (existing.exists) {
+        final proof =
+            DeliveryProof.fromMap(existing.data()!, documentId: deliveryId);
+        if (proof.isVerifiedPrivateProof &&
+            proof.sha256 == crypto.sha256.convert(bytes).toString()) {
+          return proof;
+        }
+        throw StateError(
+            'This delivery already has immutable proof. It cannot be replaced.');
+      }
+    }
+    if (snap.data()?['status'] != DeliveryStatus.arrived) {
+      throw StateError('Proof requires the arrived stage.');
+    }
+    final proof = await _storage.submitProof(
+        deliveryId: deliveryId,
+        bytes: bytes,
+        location: location,
+        notes: notes,
+        recipientName: recipientName,
+        capturedAt: capturedAt);
+    final persisted = await _deliveries
+        .doc(deliveryId)
+        .get(const GetOptions(source: Source.server));
+    if (!persisted.exists ||
+        persisted.data()?['status'] != DeliveryStatus.completed ||
+        persisted.data()?['proofStoragePath'] != proof.storagePath) {
+      throw StateError(
+          'Proof verification returned, but completion could not be confirmed. Retry the same photograph.');
+    }
+    _cache[deliveryId] =
+        Delivery.fromMap(persisted.data()!, documentId: deliveryId);
+    notificationWarning = _storage.notificationWarning;
+    return proof;
   }
 }

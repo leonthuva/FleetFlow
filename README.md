@@ -1,3 +1,7 @@
+> Task 16 update: private Supabase proof upload, trusted verification/completion and secure viewing are implemented for review. Hosted security deployment, approved account claims and real device end-to-end testing remain pending. See [Task 16 setup and verified limits](docs/SUPABASE_PROOF_INTEGRATION.md).
+
+> Integration status (2026-11-16): the cumulative implementation is under review in [PR #15](https://github.com/leonthuva/FleetFlow/pull/15). See [verified progress and blockers](docs/INTEGRATION_PROGRESS.md). Real Email/Password authentication was tested with a temporary account; privileged Firestore workflows remain blocked by role provisioning and reviewed rule deployment. Secure proof upload/completion, trusted FCM sending, background tracking and production signing are incomplete. Historical demo milestones below are not end-to-end acceptance evidence.
+
 # FleetFlow 🚚📦
 Smartphone-Based Fleet & Delivery Management System
 *Mobile Application Development – 18-Day MVP Build*
@@ -104,8 +108,8 @@ Security note: Firestore rules start in **test mode** during development and are
 
 * **Dev project:** `fleetflow-dev` (owner-created in [Firebase console](https://console.firebase.google.com)).
 * **Android app:** package `com.fleetflow.fleet_flow`, `google-services.json` in `android/app/`.
-* **Enabled services:** Email/password auth (dev), Firestore, Storage, FCM.
-* **Rules:** test-mode during build; restrict to signed-in users before the demo; never commit secrets or admin credentials.
+* **Enabled services:** Email/password Authentication and Firestore are configured; Storage requires a billing decision and trusted FCM sending is not implemented.
+* **Rules:** keep live access denied until the tested ownership rules are reviewed and explicitly released; never commit secrets or admin credentials.
 * Keep the repo **private** — the committed `google-services.json` contains project API keys meant only for the team.
 
 ---
@@ -131,4 +135,4 @@ Security note: Firestore rules start in **test mode** during development and are
 1. **Member 1 (Task 2) Complete:** Auth provider, user roles, login screen, manager admin dashboard with tab guards (`feature/member1-admin-auth`).
 2. **Member 2 (Task 3) Complete:** Driver Home, Assigned Jobs, Delivery Detail, Shift Summary, delivery lifecycle state machine (`assigned` → `picked_up` → `in_transit` → `arrived` → `completed`), agreed component insertion points for Members 3–5 (`MapInsertionPoint`, `CameraPodInsertionPoint`, `SafetyTelematicsInsertionPoint`), and Driver/Vehicle CRUD. Full technical documentation available in [docs/HANDOFF_MEMBER2_TO_MEMBER3.md](docs/HANDOFF_MEMBER2_TO_MEMBER3.md).
 3. **To Member 3 (Task 4 Handoff):** Implement `TripProvider` / `LocationProvider`, wire GPS stream and speed calculation into `MapInsertionPoint` and `SafetyTelematicsInsertionPoint`, and handle active shift trip recording.
-4. Use PRs for every task; apply the review rule before merging.
+4. Use PRs for every task; apply the review rule before merging.

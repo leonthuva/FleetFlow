@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/delivery.dart';
 import '../../models/delivery_proof.dart';
 import '../../services/delivery_service.dart';
+import '../../widgets/private_proof_viewer.dart';
 
 class CustomerTrackingScreen extends StatefulWidget {
   final String? deliveryId;
@@ -18,8 +19,9 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.deliveryId != null)
+    if (widget.deliveryId != null) {
       stream = service.watchDelivery(widget.deliveryId!);
+    }
   }
 
   @override
@@ -46,8 +48,9 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
               stream: stream,
               builder: (context, s) {
                 if (s.hasError) return Text('Delivery unavailable: ${s.error}');
-                if (s.connectionState == ConnectionState.waiting)
+                if (s.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final d = s.data;
                 if (d == null) return const Text('Delivery not found');
                 return Column(
@@ -55,26 +58,27 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     children: [
                       Text(d.id),
                       Text(d.statusDisplayName),
+                      if (d.cancelReason != null)
+                        Text('Cancellation reason: ${d.cancelReason}'),
                       Text(d.address),
                       if (d.isCompleted)
                         StreamBuilder<DeliveryProof?>(
                             stream: service.watchProof(d.id),
                             builder: (context, p) {
-                              if (p.hasError)
+                              if (p.hasError) {
                                 return Text('Proof unavailable: ${p.error}');
+                              }
                               final proof = p.data;
                               return proof == null
                                   ? const Text('No proof record available')
                                   : Column(children: [
                                       Text(proof.recipientName ?? ''),
-                                      if (Uri.tryParse(proof.photoURL)
-                                              ?.scheme ==
-                                          'https')
-                                        Image.network(proof.photoURL,
-                                            height: 240,
-                                            errorBuilder: (_, e, st) =>
-                                                const Text(
-                                                    'Proof image unavailable'))
+                                      if (proof.isVerifiedPrivateProof)
+                                        PrivateProofViewer(
+                                            deliveryId: d.id, service: service)
+                                      else
+                                        const Text(
+                                            'Legacy proof requires an approved storage migration.'),
                                     ]);
                             })
                     ]);

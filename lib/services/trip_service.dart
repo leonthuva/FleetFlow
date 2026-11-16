@@ -24,11 +24,13 @@ class TripService {
       int? limit}) async {
     final actor = uid;
     final role = (await db.doc('users/$actor').get()).data()?['role'];
-    if (!['driver', 'admin', 'dispatcher'].contains(role))
+    if (!['driver', 'admin', 'dispatcher'].contains(role)) {
       throw StateError('Verified role required.');
+    }
     if (role == 'driver') {
-      if (driverId != null && driverId != actor)
+      if (driverId != null && driverId != actor) {
         throw StateError('Drivers may only view their own history.');
+      }
       driverId = actor;
     }
     Query<Map<String, dynamic>> query = db.collection('trips');

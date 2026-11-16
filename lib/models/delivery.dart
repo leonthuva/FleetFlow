@@ -84,9 +84,10 @@ class DeliveryStatus {
   static bool isValidTransition(String current, String target) {
     if (current == target) return false;
     if (current == completed || current == cancelled) return false;
-    if (target == cancelled)
+    if (target == cancelled) {
       return standardSequence
           .contains(current); // Cancellation allowed prior to completion
+    }
 
     final currentIndex = standardSequence.indexOf(current);
     final targetIndex = standardSequence.indexOf(target);
@@ -123,6 +124,11 @@ class Delivery {
   final DateTime? pickedUpAt;
   final DateTime? inTransitAt;
   final DateTime? arrivedAt;
+  final DateTime? assignedAt;
+  final DateTime? cancelledAt;
+  final DateTime? updatedAt;
+  final String? createdBy;
+  final String? cancelReason;
   final DateTime? completedAt;
 
   const Delivery({
@@ -150,6 +156,11 @@ class Delivery {
     this.pickedUpAt,
     this.inTransitAt,
     this.arrivedAt,
+    this.assignedAt,
+    this.cancelledAt,
+    this.updatedAt,
+    this.createdBy,
+    this.cancelReason,
     this.completedAt,
   })  : driverId = driverId ?? assignedDriverId ?? '',
         address = address ?? destination ?? '',
@@ -221,12 +232,23 @@ class Delivery {
       pickedUpAt: parseFirestoreDate(map['pickedUpAt']),
       inTransitAt: parseFirestoreDate(map['inTransitAt']),
       arrivedAt: parseFirestoreDate(map['arrivedAt']),
+      assignedAt: parseFirestoreDate(map['assignedAt']),
+      cancelledAt: parseFirestoreDate(map['cancelledAt']),
+      updatedAt: parseFirestoreDate(map['updatedAt']),
+      createdBy: map['createdBy'] as String?,
+      cancelReason: map['cancelReason'] as String?,
       completedAt: parseFirestoreDate(map['completedAt']),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'assignedAt': assignedAt == null ? null : Timestamp.fromDate(assignedAt!),
+      'cancelledAt':
+          cancelledAt == null ? null : Timestamp.fromDate(cancelledAt!),
+      'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
+      'createdBy': createdBy,
+      'cancelReason': cancelReason,
       'id': id,
       'driverId': driverId,
       'vehicleId': vehicleId,
@@ -278,6 +300,11 @@ class Delivery {
     DateTime? pickedUpAt,
     DateTime? inTransitAt,
     DateTime? arrivedAt,
+    DateTime? assignedAt,
+    DateTime? cancelledAt,
+    DateTime? updatedAt,
+    String? createdBy,
+    String? cancelReason,
     DateTime? completedAt,
   }) {
     return Delivery(
@@ -301,6 +328,11 @@ class Delivery {
       pickedUpAt: pickedUpAt ?? this.pickedUpAt,
       inTransitAt: inTransitAt ?? this.inTransitAt,
       arrivedAt: arrivedAt ?? this.arrivedAt,
+      assignedAt: assignedAt ?? this.assignedAt,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      createdBy: createdBy ?? this.createdBy,
+      cancelReason: cancelReason ?? this.cancelReason,
       completedAt: completedAt ?? this.completedAt,
     );
   }

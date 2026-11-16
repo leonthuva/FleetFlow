@@ -37,12 +37,13 @@ class NotificationsScreen extends StatelessWidget {
                             onTap: () async {
                               await notificationProvider
                                   .markAsRead(n.notificationId);
-                              if (context.mounted && n.deliveryId != null)
+                              if (context.mounted && n.deliveryId != null) {
                                 Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                         builder: (_) => CustomerTrackingScreen(
                                             deliveryId: n.deliveryId)));
+                              }
                             }),
                     ])));
 }

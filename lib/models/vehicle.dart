@@ -18,7 +18,7 @@ class Vehicle {
     required this.model,
     required this.status,
     this.type = 'Delivery Van',
-    this.currentOdometerKm = 12450.0,
+    this.currentOdometerKm,
   });
 
   bool get isAvailable => status == VehicleStatus.available;
@@ -32,7 +32,7 @@ class Vehicle {
       model: map['model'] as String? ?? '',
       status: map['status'] as String? ?? VehicleStatus.available,
       type: map['type'] as String? ?? 'Delivery Van',
-      currentOdometerKm: (map['currentOdometerKm'] as num?)?.toDouble() ?? 12450.0,
+      currentOdometerKm: (map['currentOdometerKm'] as num?)?.toDouble(),
     );
   }
 

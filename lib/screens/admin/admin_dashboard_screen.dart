@@ -4,6 +4,7 @@ import '../../models/delivery.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/delivery_service.dart';
 import 'create_delivery_screen.dart';
+import '../customer/customer_tracking_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final AuthProvider authProvider;
@@ -37,14 +38,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           MaterialPageRoute(
               builder: (_) =>
                   CreateDeliveryScreen(drivers: drivers, service: _service)));
-      if (id != null && mounted)
+      if (id != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(
                 _service.notificationWarning ?? '$id saved and assigned')));
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Driver directory unavailable: $e')));
+      }
     }
   }
 
@@ -52,11 +55,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget build(BuildContext context) => ListenableBuilder(
       listenable: widget.authProvider,
       builder: (context, _) {
-        if (widget.authProvider.currentUser?.isManager != true)
+        if (widget.authProvider.currentUser?.isManager != true) {
           return Scaffold(
               appBar: AppBar(title: const Text('Access Denied')),
               body:
                   const Center(child: Text('Manager Authorization Required')));
+        }
         return Scaffold(
             appBar: AppBar(title: const Text('FleetFlow Operations'), actions: [
               IconButton(
@@ -82,12 +86,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 : StreamBuilder<List<Delivery>>(
                     stream: _stream,
                     builder: (context, snapshot) {
-                      if (snapshot.hasError)
+                      if (snapshot.hasError) {
                         return Center(
                             child: Text(
                                 'Deliveries unavailable: ${snapshot.error}'));
-                      if (!snapshot.hasData)
+                      }
+                      if (!snapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
+                      }
                       final all = snapshot.data!;
                       final shown = _index == 4
                           ? all.where((d) => !d.isActive).toList()
@@ -123,12 +129,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       builder: (ctx) => AlertDialog(
                                               title: Text(delivery.id),
                                               content: Text(
-                                                  '${delivery.pickup} to ${delivery.address}\n${delivery.statusDisplayName}\nProof: ${delivery.proofPhotoUrl ?? "Not submitted"}'),
+                                                  '${delivery.pickup} to ${delivery.address}\n${delivery.statusDisplayName}\nProof details are available in the delivery view.'),
                                               actions: [
                                                 TextButton(
                                                     onPressed: () =>
                                                         Navigator.pop(ctx),
-                                                    child: const Text('Close'))
+                                                    child: const Text('Close')),
+                                                TextButton(
+                                                    onPressed: () {
+                                                      Navigator.pop(ctx);
+                                                      Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                              builder: (_) =>
+                                                                  CustomerTrackingScreen(
+                                                                      deliveryId:
+                                                                          delivery
+                                                                              .id,
+                                                                      service:
+                                                                          _service)));
+                                                    },
+                                                    child: const Text(
+                                                        'View delivery and proof'))
                                               ])),
                                   trailing: delivery.isActive
                                       ? IconButton(
@@ -163,8 +185,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : _service.firestore.collection('vehicles'))
           .snapshots(),
       builder: (context, s) {
-        if (s.hasError)
+        if (s.hasError) {
           return Center(child: Text('Directory unavailable: ${s.error}'));
+        }
         if (!s.hasData) return const Center(child: CircularProgressIndicator());
         return ListView(children: [
           Text(_index == 1 ? 'Driver Roster' : 'Vehicle Inventory'),
@@ -197,9 +220,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       await _service.cancel(id, reason);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     }
   }
 }
