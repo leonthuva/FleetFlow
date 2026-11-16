@@ -1,7 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/firestore_dates.dart';
+
 class DeliveryProof {
   final String id;
   final String deliveryId;
   final String photoURL;
+  final String driverId;
+  final String storagePath;
   final DateTime timestamp;
   final Map<String, dynamic> capturedLocation;
   final String? notes;
@@ -11,22 +16,24 @@ class DeliveryProof {
     required this.id,
     required this.deliveryId,
     required this.photoURL,
+    this.driverId = '',
+    this.storagePath = '',
     required this.timestamp,
     required this.capturedLocation,
     this.notes,
     this.recipientName,
   });
 
-  factory DeliveryProof.fromMap(Map<String, dynamic> map, {String? documentId}) {
+  factory DeliveryProof.fromMap(Map<String, dynamic> map,
+      {String? documentId}) {
     return DeliveryProof(
       id: documentId ?? map['id'] as String? ?? '',
       deliveryId: map['deliveryId'] as String? ?? '',
       photoURL: map['photoURL'] as String? ?? map['photoUrl'] as String? ?? '',
-      timestamp: map['timestamp'] != null
-          ? (map['timestamp'] is DateTime
-              ? map['timestamp'] as DateTime
-              : DateTime.tryParse(map['timestamp'].toString()) ?? DateTime.now())
-          : DateTime.now(),
+      driverId: map['driverId'] as String? ?? '',
+      storagePath: map['storagePath'] as String? ?? '',
+      timestamp: parseFirestoreDate(map['timestamp']) ??
+          (throw const FormatException('Proof timestamp missing')),
       capturedLocation: map['capturedLocation'] is Map
           ? Map<String, dynamic>.from(map['capturedLocation'] as Map)
           : {
@@ -43,8 +50,10 @@ class DeliveryProof {
     return {
       'id': id,
       'deliveryId': deliveryId,
-      'photoURL': photoURL,
-      'timestamp': timestamp.toIso8601String(),
+      'photoUrl': photoURL,
+      'driverId': driverId,
+      'storagePath': storagePath,
+      'timestamp': Timestamp.fromDate(timestamp),
       'capturedLocation': capturedLocation,
       'notes': notes,
       'recipientName': recipientName,
