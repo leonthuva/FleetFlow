@@ -12,13 +12,18 @@ import 'screens/driver/shift_summary_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'services/firebase_service.dart';
-import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FirebaseService().initialize();
-  await NotificationService().initialize();
-  runApp(const FleetFlowApp());
+  try {
+    await FirebaseService().initialize();
+    runApp(const FleetFlowApp());
+  } catch (e) {
+    runApp(MaterialApp(
+        home: Scaffold(
+            body: Center(
+                child: Text('FleetFlow could not initialize Firebase: $e')))));
+  }
 }
 
 class FleetFlowApp extends StatefulWidget {
@@ -47,46 +52,72 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
   @override
   void initState() {
     super.initState();
-    _authProvider = widget.authProvider ?? AuthProvider();
+    _authProvider = widget.authProvider ?? (AuthProvider()..start());
     _driverProvider = widget.driverProvider ?? DriverProvider();
-    _notificationProvider = widget.notificationProvider ?? NotificationProvider();
+    _notificationProvider =
+        widget.notificationProvider ?? NotificationProvider();
+  }
+
+  @override
+  void dispose() {
+    if (widget.authProvider == null) _authProvider.dispose();
+    if (widget.driverProvider == null) _driverProvider.dispose();
+    if (widget.notificationProvider == null) _notificationProvider.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FleetFlow',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-        useMaterial3: true,
-      ),
-      home: widget.home ?? _buildAuthGate(),
-      routes: {
-        '/login': (context) => LoginScreen(authProvider: _authProvider),
-        '/admin': (context) => AdminDashboardScreen(authProvider: _authProvider),
-        '/driver-home': (context) => DriverHomeScreen(
-              authProvider: _authProvider,
-              driverProvider: _driverProvider,
-            ),
-        '/driver/jobs': (context) => AssignedJobsScreen(
-              driverProvider: _driverProvider,
-            ),
-        '/driver/shift-summary': (context) => ShiftSummaryScreen(
-              driverProvider: _driverProvider,
-            ),
-        '/driver/hub': (context) => HomeScreen(authProvider: _authProvider),
-        '/notifications': (context) => NotificationsScreen(
-              notificationProvider: _notificationProvider,
-            ),
-        '/customer-tracking': (context) => const CustomerTrackingScreen(),
-      },
-    );
+    return ListenableBuilder(
+        listenable: _authProvider,
+        builder: (context, _) => MaterialApp(
+              key: ValueKey(
+                  "${_authProvider.currentUser?.id}:${_authProvider.currentUser?.role}"),
+              title: 'FleetFlow',
+              theme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
+                useMaterial3: true,
+              ),
+              home: widget.home ?? _buildAuthGate(),
+              routes: {
+                '/login': (context) => LoginScreen(authProvider: _authProvider),
+                '/admin': (context) =>
+                    AdminDashboardScreen(authProvider: _authProvider),
+                '/driver-home': (context) => _driverGuard(DriverHomeScreen(
+                      authProvider: _authProvider,
+                      driverProvider: _driverProvider,
+                    )),
+                '/driver/jobs': (context) => _driverGuard(AssignedJobsScreen(
+                      driverProvider: _driverProvider,
+                    )),
+                '/driver/shift-summary': (context) =>
+                    _driverGuard(ShiftSummaryScreen(
+                      driverProvider: _driverProvider,
+                    )),
+                '/driver/hub': (context) =>
+                    HomeScreen(authProvider: _authProvider),
+                '/notifications': (context) => NotificationsScreen(
+                      notificationProvider: _notificationProvider,
+                    ),
+                '/customer-tracking': (context) =>
+                    const CustomerTrackingScreen(),
+              },
+            ));
   }
+
+  Widget _driverGuard(Widget child) =>
+      _authProvider.currentUser?.isDriver == true
+          ? child
+          : const Scaffold(
+              body: Center(child: Text('Driver authorization required')));
 
   Widget _buildAuthGate() {
     return ListenableBuilder(
       listenable: _authProvider,
       builder: (context, _) {
+        if (_authProvider.isLoading)
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         if (!_authProvider.isAuthenticated) {
           return LoginScreen(authProvider: _authProvider);
         }

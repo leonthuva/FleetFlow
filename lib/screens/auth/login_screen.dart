@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/custom_text_field.dart';
@@ -24,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
-  String _selectedRole = UserRole.admin;
 
   @override
   void dispose() {
@@ -54,22 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
-  void _handleRoleSwitch(String role) {
-    setState(() {
-      _selectedRole = role;
-      if (role == UserRole.admin) {
-        _emailController.text = 'admin@fleetflow.com';
-        _passwordController.text = 'admin123';
-      } else if (role == UserRole.dispatcher) {
-        _emailController.text = 'dispatcher@fleetflow.com';
-        _passwordController.text = 'dispatch123';
-      } else {
-        _emailController.text = 'driver@fleetflow.com';
-        _passwordController.text = 'driver123';
-      }
-    });
-  }
-
   Future<void> _submit() async {
     widget.authProvider.clearError();
     if (!_formKey.currentState!.validate()) {
@@ -79,19 +61,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final success = await widget.authProvider.signIn(
       email: _emailController.text.trim(),
       password: _passwordController.text,
-      roleOverride: _selectedRole,
     );
 
     if (success && mounted) {
       if (widget.onLoginSuccess != null) {
         widget.onLoginSuccess!();
-      } else {
-        final user = widget.authProvider.currentUser;
-        if (user != null && user.isManager) {
-          Navigator.of(context).pushReplacementNamed('/admin');
-        } else {
-          Navigator.of(context).pushReplacementNamed('/driver-home');
-        }
       }
     }
   }
@@ -126,43 +100,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         Text(
                           'Sign In to Your Account',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Select your role or enter your credentials below',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey.shade600,
-                              ),
+                          'Enter your registered email and password',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.grey.shade600,
+                                  ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 18),
-
-                        // Role Selector Chips (Manager vs Driver)
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(
-                              value: UserRole.admin,
-                              label: Text('Manager'),
-                              icon: Icon(Icons.admin_panel_settings_outlined),
-                            ),
-                            ButtonSegment(
-                              value: UserRole.driver,
-                              label: Text('Driver'),
-                              icon: Icon(Icons.local_shipping_outlined),
-                            ),
-                          ],
-                          selected: {_selectedRole},
-                          onSelectionChanged: (selection) {
-                            if (selection.isNotEmpty) {
-                              _handleRoleSwitch(selection.first);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 20),
 
                         // Error Banner if present
                         if (widget.authProvider.errorMessage != null) ...[
@@ -175,12 +130,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.error_outline, color: Colors.red.shade700),
+                                Icon(Icons.error_outline,
+                                    color: Colors.red.shade700),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     widget.authProvider.errorMessage!,
-                                    style: TextStyle(color: Colors.red.shade900),
+                                    style:
+                                        TextStyle(color: Colors.red.shade900),
                                   ),
                                 ),
                               ],
@@ -227,7 +184,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         // Sign In Action Button
                         FilledButton(
-                          onPressed: widget.authProvider.isLoading ? null : _submit,
+                          onPressed:
+                              widget.authProvider.isLoading ? null : _submit,
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -244,9 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 )
                               : Text(
-                                  _selectedRole == UserRole.admin
-                                      ? 'Sign In as Manager'
-                                      : 'Sign In as Driver',
+                                  'Sign In',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,

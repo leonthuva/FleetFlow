@@ -1,82 +1,146 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/user.dart';
 
 class AuthProvider extends ChangeNotifier {
+  AuthProvider({FirebaseAuth? auth, FirebaseFirestore? firestore})
+      : _auth = auth,
+        _db = firestore;
+  final FirebaseAuth? _auth;
+  final FirebaseFirestore? _db;
+  FirebaseAuth get auth => _auth ?? FirebaseAuth.instance;
+  FirebaseFirestore get db => _db ?? FirebaseFirestore.instance;
+  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _roleSubscription;
+  int _generation = 0;
+  bool _disposed = false;
   AppUser? _currentUser;
   bool _isLoading = false;
   String? _errorMessage;
-
   AppUser? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
 
   void clearError() {
     _errorMessage = null;
-    notifyListeners();
+    _notify();
   }
 
-  /// Sets the active user directly (useful for tests and role simulation)
+  @visibleForTesting
   void setUser(AppUser? user) {
     _currentUser = user;
     _errorMessage = null;
-    notifyListeners();
+    _notify();
   }
 
-  /// Authenticate user using email and password.
-  /// Validates credentials and assigns the appropriate role.
-  Future<bool> signIn({
-    required String email,
-    required String password,
-    String? roleOverride,
-  }) async {
+  void start() {
+    _authSubscription ??= auth.authStateChanges().listen((user) {
+      unawaited(_bind(user));
+    }, onError: (Object e) {
+      _currentUser = null;
+      _errorMessage = 'Authentication session failed: $e';
+      _notify();
+    });
+  }
+
+  AppUser _parse(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    if (data == null || !UserRole.all.contains(data['role']))
+      throw StateError(
+          'Your account has no approved role. Contact your administrator.');
+    return AppUser.fromMap(data, documentId: doc.id);
+  }
+
+  Future<void> _bind(User? user) async {
+    final generation = ++_generation;
+    await _roleSubscription?.cancel();
+    _currentUser = null;
+    if (user == null) {
+      _isLoading = false;
+      _notify();
+      return;
+    }
     _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
+    _notify();
     try {
-      // Simulate network / auth latency
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      final trimmedEmail = email.trim().toLowerCase();
-
-      // Basic role determination for dev/demo accounts or roleOverride
-      String role = roleOverride ?? UserRole.driver;
-      String displayName = 'Fleet User';
-
-      if (trimmedEmail.contains('admin') || trimmedEmail.contains('manager')) {
-        role = UserRole.admin;
-        displayName = 'Operations Manager';
-      } else if (trimmedEmail.contains('dispatcher')) {
-        role = UserRole.dispatcher;
-        displayName = 'Dispatcher Lead';
-      } else {
-        role = roleOverride ?? UserRole.driver;
-        displayName = 'Assigned Driver';
-      }
-
-      _currentUser = AppUser(
-        id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        email: trimmedEmail,
-        displayName: displayName,
-        role: role,
-      );
-
-      _isLoading = false;
-      notifyListeners();
-      return true;
+      final ref = db.collection('users').doc(user.uid);
+      final doc = await ref.get();
+      if (generation != _generation || _disposed) return;
+      _currentUser = _parse(doc);
+      _errorMessage = null;
+      _roleSubscription = ref.snapshots().listen((doc) {
+        if (generation != _generation || _disposed) return;
+        try {
+          _currentUser = _parse(doc);
+          _errorMessage = null;
+        } catch (e) {
+          _currentUser = null;
+          _errorMessage = e.toString();
+        }
+        _notify();
+      }, onError: (Object e) {
+        if (generation == _generation) {
+          _currentUser = null;
+          _errorMessage = 'Role verification failed: $e';
+          _notify();
+        }
+      });
     } catch (e) {
-      _errorMessage = 'Authentication failed. Please check your credentials.';
-      _isLoading = false;
-      notifyListeners();
-      return false;
+      if (generation == _generation) {
+        _currentUser = null;
+        _errorMessage = e.toString();
+      }
+    } finally {
+      if (generation == _generation) {
+        _isLoading = false;
+        _notify();
+      }
     }
   }
 
-  /// Sign out the current user and reset auth state
-  Future<void> signOut() async {
-    _currentUser = null;
+  Future<bool> signIn({required String email, required String password}) async {
+    _isLoading = true;
     _errorMessage = null;
-    notifyListeners();
+    _notify();
+    try {
+      final credentials = await auth.signInWithEmailAndPassword(
+          email: email.trim(), password: password);
+      await _bind(credentials.user);
+      return isAuthenticated;
+    } on FirebaseAuthException catch (e) {
+      _currentUser = null;
+      _errorMessage = e.message ?? 'Sign in failed.';
+      return false;
+    } catch (e) {
+      _currentUser = null;
+      _errorMessage = 'Sign in failed: $e';
+      return false;
+    } finally {
+      _isLoading = false;
+      _notify();
+    }
+  }
+
+  Future<void> signOut() async {
+    ++_generation;
+    await _roleSubscription?.cancel();
+    _currentUser = null;
+    _notify();
+    await auth.signOut();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    ++_generation;
+    _authSubscription?.cancel();
+    _roleSubscription?.cancel();
+    super.dispose();
   }
 }
