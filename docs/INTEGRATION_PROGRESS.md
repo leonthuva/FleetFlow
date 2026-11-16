@@ -10,7 +10,7 @@ The implementation is ready for review, not end-to-end release. Codex implemente
 | Nippuni M3 | feature/member3-map-integration | 718e3b8, original ef04bf8 preserved | [12](https://github.com/leonthuva/FleetFlow/pull/12) | 10 map/driver tests passed |
 | Baary M5 | feature/member5-proof-notifications | 4c7691c | [13](https://github.com/leonthuva/FleetFlow/pull/13) | 6 proof/alerts/tracking tests passed |
 | Aadhil M4 | feature/member4-history-integration | 2caedcd | [14](https://github.com/leonthuva/FleetFlow/pull/14) | 3 history integration tests passed |
-| Thuva integration/QA | codex/security-integration-qa | see current HEAD | review PR | Full Flutter and emulator suite, build and CI below |
+| Thuva integration/QA | codex/security-integration-qa | see current HEAD | [15](https://github.com/leonthuva/FleetFlow/pull/15) | Full Flutter and emulator suite, build and CI below |
 
 Actual implementer for all new feature commits: Codex for Thuva. Aasif's preserved form was adapted from feature/member1-latest. Aadhil's models and UI were adapted from feature/member4-history; its fallback services and display-name ownership were excluded. See each commit's changed-file list and PR diff for the exact files. New branches keep owner-specific review work separate without rewriting existing feature branches. The branches are cumulative dependencies; review them in table order, then merge the final QA corrections before deploying any Firebase configuration.
 
@@ -67,3 +67,5 @@ flutter build apk --release
 The unrelated analysis_options.yaml change and untracked AGENTS.md are preserved and excluded from commits. Prompt/output archives are written outside the repository as required by AGENTS.md.
 
 The first release build failed because the installed NDK source.properties omitted the spaces required by its own CMake parser. The file was backed up to .git/ndk-source.properties.before and spacing was repaired without changing revision 28.2.13676358. A release-build retry is in progress. The system already contains Android 37.1 images and usable WHPX acceleration; a dedicated headless QA AVD is being attempted. These are environment changes, not Firebase deployment.
+
+Final QA implementation commit: aff8b98. Integration synchronized with origin/main using merge commit 6b06002, preserving the externally merged PR #9. GitHub rules CI passed on that revision; Flutter/APK CI and local APK retry were still running at this log update.

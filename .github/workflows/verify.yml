@@ -2,7 +2,7 @@ name: Verify FleetFlow
 on:
   pull_request:
   push:
-    branches: [main, codex/security-integration-qa]
+    branches: [main]
 permissions:
   contents: read
 jobs:
