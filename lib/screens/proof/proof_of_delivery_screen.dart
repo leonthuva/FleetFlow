@@ -1,5 +1,7 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show compute;
+import '../../core/proof_image.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/delivery.dart';
 import '../../services/delivery_service.dart';
@@ -7,11 +9,15 @@ import '../../services/delivery_service.dart';
 class ProofOfDeliveryScreen extends StatefulWidget {
   final Delivery delivery;
   final VoidCallback? onCompleted;
+  final DeliveryService? service;
+  final ImagePicker? imagePicker;
 
   const ProofOfDeliveryScreen({
     super.key,
     required this.delivery,
     this.onCompleted,
+    this.service,
+    this.imagePicker,
   });
 
   @override
@@ -19,12 +25,15 @@ class ProofOfDeliveryScreen extends StatefulWidget {
 }
 
 class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
-  final ImagePicker _picker = ImagePicker();
-  final DeliveryService _deliveryService = DeliveryService();
+  late final ImagePicker _picker = widget.imagePicker ?? ImagePicker();
+  late final DeliveryService _deliveryService =
+      widget.service ?? DeliveryService();
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _recipientController = TextEditingController();
 
   XFile? _capturedImage;
+  Uint8List? _previewBytes;
+  DateTime? _capturedAt;
   bool _isUploading = false;
   bool _permissionExplanationShown = false;
   String? _uploadError;
@@ -48,7 +57,7 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
             size: 48, color: Colors.deepOrange),
         title: const Text('Camera Permission Required'),
         content: const Text(
-          'FleetFlow uses the camera to preview handover evidence. Secure upload is currently unavailable, so this photo cannot complete a delivery.',
+          'FleetFlow uses the camera to capture handover evidence. The photograph is uploaded privately and the delivery completes only after the server verifies it.',
         ),
         actions: [
           TextButton(
@@ -70,6 +79,21 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
     return false;
   }
 
+  Future<void> _acceptPhoto(XFile photo) async {
+    if (await photo.length() > 5000000) {
+      throw const FormatException('Photo must be at most 5 MB.');
+    }
+    final bytes = await photo.readAsBytes();
+    await compute(validateProofImage, bytes);
+    if (!mounted) return;
+    setState(() {
+      _capturedImage = photo;
+      _previewBytes = bytes;
+      _capturedAt = DateTime.now();
+      _uploadError = null;
+    });
+  }
+
   Future<void> _takePhoto() async {
     final granted = await _requestCameraPermissionExplanation();
     if (!granted) return;
@@ -79,18 +103,15 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
         source: ImageSource.camera,
         imageQuality: 85,
         maxWidth: 1600,
+        maxHeight: 1600,
       );
 
       if (photo != null && mounted) {
-        setState(() {
-          _capturedImage = photo;
-          _uploadError = null;
-        });
+        await _acceptPhoto(photo);
       }
     } catch (e) {
-      debugPrint('Camera unavailable: $e');
       if (mounted) {
-        _showImageSourceSheet();
+        setState(() => _uploadError = 'Camera/photo unavailable: $e');
       }
     }
   }
@@ -100,13 +121,12 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
       );
 
       if (photo != null && mounted) {
-        setState(() {
-          _capturedImage = photo;
-          _uploadError = null;
-        });
+        await _acceptPhoto(photo);
       }
     } catch (e) {
       if (mounted) setState(() => _uploadError = 'Could not select photo: $e');
@@ -162,31 +182,22 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
     });
 
     try {
-      final bytes = await _capturedImage!.readAsBytes();
-      if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
-        throw StateError('Photo must be between 1 byte and 5 MiB.');
-      }
-      final jpeg = bytes.length > 2 &&
-          bytes[0] == 255 &&
-          bytes[1] == 216 &&
-          bytes[2] == 255;
-      final png = bytes.length > 7 &&
-          bytes[0] == 137 &&
-          bytes[1] == 80 &&
-          bytes[2] == 78 &&
-          bytes[3] == 71;
-      final webp = bytes.length > 11 &&
-          String.fromCharCodes(bytes.take(4)) == 'RIFF' &&
-          String.fromCharCodes(bytes.skip(8).take(4)) == 'WEBP';
-      if (!jpeg && !png && !webp) {
-        throw StateError('Choose a JPEG, PNG or WebP photo.');
-      }
       await _deliveryService.submitProofOfDelivery(
           deliveryId: widget.delivery.id,
-          photoBytes: bytes,
+          photoBytes: _previewBytes,
           location: {},
           notes: _notesController.text.trim(),
-          recipientName: _recipientController.text.trim());
+          recipientName: _recipientController.text.trim(),
+          capturedAt: _capturedAt);
+      if (!mounted) return;
+      final warning = _deliveryService.notificationWarning;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(warning ?? 'Proof verified and delivery completed.')));
+      if (widget.onCompleted != null) {
+        widget.onCompleted!();
+      } else {
+        Navigator.pop(context, true);
+      }
     } catch (e) {
       if (mounted) setState(() => _uploadError = e.toString());
     } finally {
@@ -206,11 +217,12 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Card(
+              Card(
                   child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text(
-                          'Secure proof upload is unavailable. Capture and preview are local only; delivery completion is blocked.'))),
+                      padding: const EdgeInsets.all(12),
+                      child: Text(_deliveryService.proofStorageAvailable
+                          ? 'Proof photos are private. Completion requires trusted server verification.'
+                          : 'Secure Supabase proof upload is not configured. Capture and preview are local only; delivery completion is blocked.'))),
               // Delivery Overview Card
               Card(
                 elevation: 0,
@@ -284,7 +296,7 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
               const SizedBox(height: 8),
               if (_capturedImage == null)
                 InkWell(
-                  onTap: _showImageSourceSheet,
+                  onTap: _isUploading ? null : _showImageSourceSheet,
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     height: 220,
@@ -323,15 +335,11 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                         height: 240,
                         width: double.infinity,
                         color: Colors.black,
-                        child: _capturedImage!.path.startsWith('http')
-                            ? Image.network(
-                                _capturedImage!.path,
-                                fit: BoxFit.cover,
-                              )
-                            : Image.file(
-                                File(_capturedImage!.path),
-                                fit: BoxFit.cover,
-                              ),
+                        child: Image.memory(_previewBytes!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, error, stack) => const Center(
+                                child: Text(
+                                    'Photo preview unavailable. Retake the photograph.'))),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -339,7 +347,8 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton.icon(
-                          onPressed: _showImageSourceSheet,
+                          onPressed:
+                              _isUploading ? null : _showImageSourceSheet,
                           icon: const Icon(Icons.refresh),
                           label: const Text('Retake Photo'),
                         ),
@@ -352,6 +361,7 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
 
               // Recipient & Notes Fields
               TextField(
+                enabled: !_isUploading,
                 controller: _recipientController,
                 decoration: InputDecoration(
                   labelText: 'Received By (Optional)',
@@ -363,6 +373,7 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
+                enabled: !_isUploading,
                 controller: _notesController,
                 maxLines: 2,
                 decoration: InputDecoration(
@@ -382,11 +393,34 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                 ),
               ],
 
+              if (_uploadError != null &&
+                  _deliveryService.proofStorageAvailable)
+                TextButton(
+                    onPressed: _isUploading
+                        ? null
+                        : () async {
+                            setState(() => _isUploading = true);
+                            try {
+                              await _deliveryService
+                                  .discardPendingProof(widget.delivery.id);
+                              if (mounted) setState(() => _uploadError = null);
+                            } catch (e) {
+                              if (mounted) {
+                                setState(() => _uploadError = e.toString());
+                              }
+                            } finally {
+                              if (mounted) setState(() => _isUploading = false);
+                            }
+                          },
+                    child: const Text('Discard unfinished upload and retry')),
               const SizedBox(height: 24),
 
               // Confirm Button
               FilledButton.icon(
-                onPressed: _isUploading ? null : _confirmAndSubmitProof,
+                onPressed:
+                    _isUploading || !_deliveryService.proofStorageAvailable
+                        ? null
+                        : _confirmAndSubmitProof,
                 icon: _isUploading
                     ? const SizedBox(
                         width: 18,
