@@ -10,9 +10,7 @@ class ShiftSummaryScreen extends StatelessWidget {
       builder: (context, _) => Scaffold(
           appBar: AppBar(title: const Text('Shift Summary')),
           body: ListView(padding: const EdgeInsets.all(16), children: [
-            Text(driverProvider.isShiftActive
-                ? 'Local shift active'
-                : 'Local shift ended'),
+            Text(driverProvider.isShiftActive ? 'Shift active' : 'Shift ended'),
             Text(
                 'Session duration: ${driverProvider.shiftDuration.inMinutes} minutes'),
             Text('Vehicle: ${driverProvider.activeVehicle.licensePlate}'),
@@ -20,14 +18,16 @@ class ShiftSummaryScreen extends StatelessWidget {
             Text('Completed: ${driverProvider.completedCount}'),
             Text('In progress: ${driverProvider.inProgressCount}'),
             const Text(
-                'Shift timing is local to this app session. No background telemetry is recorded.'),
+                'Your on-shift status is saved so managers can assign you deliveries. Shift timing is local to this app session. No background telemetry is recorded.'),
             FilledButton(
-                onPressed: driverProvider.isShiftActive
-                    ? driverProvider.endShift
-                    : () => driverProvider.startShift(),
+                onPressed: driverProvider.isShiftBusy
+                    ? null
+                    : driverProvider.isShiftActive
+                        ? () => driverProvider.endShift()
+                        : () => driverProvider.startShift(),
                 child: Text(driverProvider.isShiftActive
-                    ? 'End local shift'
-                    : 'Start local shift')),
+                    ? 'End shift'
+                    : 'Start shift')),
             TextButton(
                 onPressed: () =>
                     Navigator.pushNamed(context, '/delivery-history'),

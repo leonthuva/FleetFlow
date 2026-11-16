@@ -282,22 +282,27 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               ),
             ),
             FilledButton.tonal(
-              onPressed: () {
-                if (isShiftActive) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ShiftSummaryScreen(
-                        driverProvider: _driverProvider,
-                      ),
-                    ),
-                  );
-                } else {
-                  _driverProvider.startShift();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Local shift started.')),
-                  );
-                }
-              },
+              onPressed: _driverProvider.isShiftBusy
+                  ? null
+                  : () async {
+                      if (isShiftActive) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ShiftSummaryScreen(
+                              driverProvider: _driverProvider,
+                            ),
+                          ),
+                        );
+                      } else {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final ok = await _driverProvider.startShift();
+                        messenger.showSnackBar(SnackBar(
+                            content: Text(ok
+                                ? 'Shift started. Managers can now assign you deliveries.'
+                                : _driverProvider.errorMessage ??
+                                    'Could not start shift.')));
+                      }
+                    },
               child: Text(isShiftActive ? 'Shift Summary' : 'Start Shift'),
             ),
           ],
