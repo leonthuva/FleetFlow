@@ -16,6 +16,7 @@ class AuthProvider extends ChangeNotifier {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _roleSubscription;
   int _generation = 0;
   bool _disposed = false;
+  bool _registering = false;
   AppUser? _currentUser;
   bool _isLoading = false;
   String? _errorMessage;
@@ -59,6 +60,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _bind(User? user) async {
+    // While registering, the role document does not exist yet. Skip the
+    // auth-state callback so the user never sees a false "no approved role".
+    if (_registering) return;
     final generation = ++_generation;
     await _roleSubscription?.cancel();
     _currentUser = null;
@@ -125,6 +129,76 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       _notify();
+    }
+  }
+
+  /// Self-registration is limited to the `driver` role. Manager and admin
+  /// accounts must be provisioned by an administrator; Firestore rules also
+  /// reject any other role on create.
+  Future<bool> registerDriver({
+    required String email,
+    required String password,
+    required String displayName,
+    String? phone,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    _registering = true;
+    _notify();
+    User? created;
+    try {
+      final credentials = await auth.createUserWithEmailAndPassword(
+          email: email.trim(), password: password);
+      created = credentials.user;
+      if (created == null) throw StateError('Account was not created.');
+      final cleanPhone = phone?.trim();
+      await db.collection('users').doc(created.uid).set({
+        'uid': created.uid,
+        'email': email.trim(),
+        'displayName': displayName.trim(),
+        'role': UserRole.driver,
+        if (cleanPhone != null && cleanPhone.isNotEmpty) 'phone': cleanPhone,
+        'onShift': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      _registering = false;
+      await _bind(created);
+      return isAuthenticated;
+    } on FirebaseAuthException catch (e) {
+      _currentUser = null;
+      _errorMessage = _registrationMessage(e);
+      return false;
+    } catch (e) {
+      // The account exists but its role document could not be saved (for
+      // example permission denied). Remove it so no role-less login remains.
+      _currentUser = null;
+      _errorMessage = 'Could not finish registration: $e';
+      try {
+        await created?.delete();
+      } catch (_) {
+        await auth.signOut();
+      }
+      return false;
+    } finally {
+      _registering = false;
+      _isLoading = false;
+      _notify();
+    }
+  }
+
+  String _registrationMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'An account already exists for this email. Sign in instead.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'operation-not-allowed':
+        return 'Email/password sign-up is not enabled for this project.';
+      default:
+        return e.message ?? 'Registration failed.';
     }
   }
 
