@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/delivery.dart';
@@ -164,8 +163,9 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
 
     try {
       final bytes = await _capturedImage!.readAsBytes();
-      if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024)
+      if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
         throw StateError('Photo must be between 1 byte and 5 MiB.');
+      }
       final jpeg = bytes.length > 2 &&
           bytes[0] == 255 &&
           bytes[1] == 216 &&
@@ -178,8 +178,9 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
       final webp = bytes.length > 11 &&
           String.fromCharCodes(bytes.take(4)) == 'RIFF' &&
           String.fromCharCodes(bytes.skip(8).take(4)) == 'WEBP';
-      if (!jpeg && !png && !webp)
+      if (!jpeg && !png && !webp) {
         throw StateError('Choose a JPEG, PNG or WebP photo.');
+      }
       await _deliveryService.submitProofOfDelivery(
           deliveryId: widget.delivery.id,
           photoBytes: bytes,

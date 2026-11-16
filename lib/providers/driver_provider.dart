@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../services/delivery_service.dart';
 import 'package:flutter/foundation.dart';
@@ -22,6 +23,11 @@ class DriverProvider extends ChangeNotifier {
       : _service = service ?? DeliveryService();
   final DeliveryService _service;
   StreamSubscription<List<Delivery>>? _subscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _profileSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _vehicleSubscription;
+  String? vehicleError;
   String? _uid;
   bool _loading = false;
   bool _disposed = false;
@@ -35,11 +41,62 @@ class DriverProvider extends ChangeNotifier {
     _uid = uid;
     final session = ++_session;
     _subscription?.cancel();
+    _profileSubscription?.cancel();
+    _vehicleSubscription?.cancel();
+    vehicleError = null;
+    _activeVehicle = const Vehicle(
+        id: '',
+        licensePlate: 'Unassigned',
+        model: 'No assigned vehicle',
+        status: VehicleStatus.available);
     _deliveries = [];
     _errorMessage = null;
     _pending.clear();
     _loading = uid != null;
     if (uid != null) {
+      _profileSubscription = _service.firestore
+          .collection('users')
+          .doc(uid)
+          .snapshots()
+          .listen((profile) {
+        if (_disposed || session != _session) return;
+        _vehicleSubscription?.cancel();
+        final vehicleId = profile.data()?['activeVehicleId'] as String?;
+        if (vehicleId == null || vehicleId.isEmpty) {
+          _activeVehicle = const Vehicle(
+              id: '',
+              licensePlate: 'Unassigned',
+              model: 'No assigned vehicle',
+              status: VehicleStatus.available);
+          notifyListeners();
+          return;
+        }
+        _vehicleSubscription = _service.firestore
+            .collection('vehicles')
+            .doc(vehicleId)
+            .snapshots()
+            .listen((vehicle) {
+          if (_disposed || session != _session) return;
+          if (vehicle.exists) {
+            _activeVehicle =
+                Vehicle.fromMap(vehicle.data()!, documentId: vehicle.id);
+            vehicleError = null;
+          } else {
+            vehicleError = 'Assigned vehicle record unavailable.';
+          }
+          notifyListeners();
+        }, onError: (Object e) {
+          if (!_disposed && session == _session) {
+            vehicleError = 'Vehicle unavailable: $e';
+            notifyListeners();
+          }
+        });
+      }, onError: (Object e) {
+        if (!_disposed && session == _session) {
+          vehicleError = 'Vehicle profile unavailable: $e';
+          notifyListeners();
+        }
+      });
       _subscription = _service.watchDeliveries(driverId: uid).listen((items) {
         if (_disposed || session != _session) return;
         _deliveries = items;
@@ -167,6 +224,8 @@ class DriverProvider extends ChangeNotifier {
     _disposed = true;
     ++_session;
     _subscription?.cancel();
+    _profileSubscription?.cancel();
+    _vehicleSubscription?.cancel();
     super.dispose();
   }
 }

@@ -48,10 +48,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         final activeDelivery = _driverProvider.activeDelivery;
         final vehicle = _driverProvider.activeVehicle;
 
-        if (_driverProvider.isLoading)
+        if (_driverProvider.isLoading) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
-        if (_driverProvider.errorMessage != null)
+        }
+        if (_driverProvider.errorMessage != null) {
           return Scaffold(
               appBar: AppBar(title: const Text('Driver assignments')),
               body: Center(
@@ -61,6 +62,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     onPressed: () => widget.authProvider?.signOut(),
                     child: const Text('Sign out'))
               ])));
+        }
         return Scaffold(
           appBar: AppBar(
             title: Column(
@@ -72,7 +74,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  '${vehicle.model} (${vehicle.licensePlate})',
+                  _driverProvider.vehicleError ??
+                      '${vehicle.model} (${vehicle.licensePlate})',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
               ],
@@ -311,14 +314,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-            color: theme.colorScheme.primary.withOpacity(0.3), width: 1.5),
+            color: theme.colorScheme.primary.withValues(alpha: 0.3),
+            width: 1.5),
       ),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
             colors: [
-              theme.colorScheme.primary.withOpacity(0.08),
+              theme.colorScheme.primary.withValues(alpha: 0.08),
               Colors.white,
             ],
             begin: Alignment.topLeft,
@@ -459,9 +463,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Column(
         children: [
@@ -558,7 +562,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           );
         },
         leading: CircleAvatar(
-          backgroundColor: _getStatusColor(delivery.status).withOpacity(0.15),
+          backgroundColor:
+              _getStatusColor(delivery.status).withValues(alpha: 0.15),
           child: Icon(_getStatusIcon(delivery.status),
               color: _getStatusColor(delivery.status), size: 20),
         ),
@@ -593,9 +598,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         DeliveryStatus.displayName(status),

@@ -21,10 +21,12 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
       body: StreamBuilder<List<Delivery>>(
           stream: stream,
           builder: (context, s) {
-            if (s.hasError)
+            if (s.hasError) {
               return Center(child: Text('History unavailable: ${s.error}'));
-            if (!s.hasData)
+            }
+            if (!s.hasData) {
               return const Center(child: CircularProgressIndicator());
+            }
             final history =
                 s.data!.where((d) => d.isCompleted || d.isCancelled).toList();
             return ListView(children: [

@@ -28,13 +28,15 @@ class _SafetyState extends State<SafetyTelematicsInsertionPoint> {
           message: 'Assistance requested',
           type: 'emergency',
           metadata: {'deliveryId': widget.deliveryId});
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Assistance request saved to manager alerts.')));
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Request failed: $e')));
+      }
     } finally {
       if (mounted) setState(() => pending = false);
     }

@@ -47,16 +47,19 @@ class NotificationService {
           await firestore.doc('notificationTargets/managers').get();
       targets = List<String>.from(directory.data()?['uids'] ?? []);
     } else {
-      if (!manager)
+      if (!manager) {
         throw StateError('Drivers may only alert approved manager recipients.');
+      }
       targets = [recipientId];
     }
-    if (targets.isEmpty)
+    if (targets.isEmpty) {
       throw StateError('No approved notification recipients configured.');
+    }
     var text = message;
     if (!manager) {
-      if (metadata?['deliveryId'] is! String)
+      if (metadata?['deliveryId'] is! String) {
         throw ArgumentError('Assigned delivery required.');
+      }
       text = type == NotificationType.emergency
           ? 'Driver requests assistance for delivery ${metadata!['deliveryId']}.'
           : 'Delivery ${metadata!['deliveryId']} status changed to ${metadata['status'] ?? type}.';

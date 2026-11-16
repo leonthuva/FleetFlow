@@ -75,7 +75,7 @@ class Trip {
       startTime: _parseDate(map['startTime']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       endTime: _parseDate(map['endTime']),
-      status: map['status'] as String? ?? TripStatus.completed,
+      status: map['status'] as String? ?? 'unknown',
       startLat: (map['startLat'] as num?)?.toDouble(),
       startLng: (map['startLng'] as num?)?.toDouble(),
       endLat: (map['endLat'] as num?)?.toDouble(),

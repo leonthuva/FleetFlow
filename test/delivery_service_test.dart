@@ -87,4 +87,19 @@ void main() {
     expect((await db.doc('deliveries/DEL-0001').get()).data()!['status'],
         'cancelled');
   });
+  test('cancellation audit fields survive Timestamp roundtrip', () {
+    final date = DateTime(2026, 11, 16);
+    final delivery = const Delivery(id: 'D1', driverId: 'driver').copyWith(
+        status: 'cancelled',
+        cancelReason: 'Recipient unavailable',
+        cancelledAt: date,
+        assignedAt: date,
+        updatedAt: date,
+        createdBy: 'manager');
+    final restored = Delivery.fromMap(delivery.toMap(), documentId: 'D1');
+    expect(restored.cancelReason, 'Recipient unavailable');
+    expect(restored.cancelledAt, date);
+    expect(restored.createdBy, 'manager');
+    expect(DeliveryStatus.all, contains('cancelled'));
+  });
 }

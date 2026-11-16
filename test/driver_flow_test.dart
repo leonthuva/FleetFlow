@@ -182,6 +182,20 @@ void main() {
       expect((await db.doc('deliveries/own').get()).data()!['status'],
           'picked_up');
     });
+    test(
+        'assigned vehicle uses the provisioned profile and live vehicle document',
+        () async {
+      await db.doc('users/driver').update({'activeVehicleId': 'V1'});
+      await db
+          .doc('vehicles/V1')
+          .set({'licensePlate': 'WP-1234', 'model': 'Van', 'status': 'in-use'});
+      provider.bindUser('driver');
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(provider.activeVehicle.licensePlate, 'WP-1234');
+      provider.bindUser(null);
+      expect(provider.activeVehicle.licensePlate, 'Unassigned');
+    });
     test('shift UI remains available without fabricated shift history', () {
       expect(provider.isShiftActive, isFalse);
       provider.startShift();
