@@ -4,15 +4,15 @@ Feature owner: Baary (M5). Integration/security owner: Thuva (M6). Actual implem
 
 ## Repository receipt
 
-Repository: https://github.com/leonthuva/FleetFlow  
-Branch: `feature/member5-supabase-proof`  
-PR: https://github.com/leonthuva/FleetFlow/pull/18 â€” OPEN, mergeable, Baary requested as reviewer, no approval received at this report snapshot. No PR was merged by Task 16. Open PR #15's QA foundation is included; open history PR #16 is not merged wholesale. Main was `21208da` at branch creation.
+Repository: https://github.com/leonthuva/FleetFlow
+Branch: `feature/member5-supabase-proof`
+PR: https://github.com/leonthuva/FleetFlow/pull/18 — OPEN, mergeable, Baary requested as reviewer, no approval received at this report snapshot. No PR was merged by Task 16. Open PR #15's QA foundation is included; open history PR #16 is not merged wholesale. Main was `21208da` at branch creation.
 
 Implementation commits:
 
-- `9e91c16` â€” trusted private broker, authorization, policies, tests and provisioning tooling.
-- `aee6e32` â€” Flutter private proof upload, verification, viewer and camera/service tests.
-- `8500214` â€” proposed contract, integration documentation and security CI.
+- `9e91c16` — trusted private broker, authorization, policies, tests and provisioning tooling.
+- `aee6e32` — Flutter private proof upload, verification, viewer and camera/service tests.
+- `8500214` — proposed contract, integration documentation and security CI.
 
 Pre-existing modified `analysis_options.yaml` and untracked `AGENTS.md` remain untouched and uncommitted. Original teammate commits are preserved. No force push or history rewrite.
 
@@ -49,14 +49,14 @@ GitHub CI run: https://github.com/leonthuva/FleetFlow/actions/runs/43923491229 .
 
 ## APK receipt
 
-Command: `flutter build apk --release --dart-define-from-file=.env.supabase.public.json`  
-Path: `build/app/outputs/flutter-apk/app-release.apk`  
-Size: 60,578,376 bytes (57.8 MiB)  
-SHA-256: `BEA0D2343C92D4A0A9A3010BE31D8F4F87149C7BED56C61C9406F7E3C51C59BE`  
-Package: `com.fleetflow.fleet_flow`, version 1.0.0 (1), min SDK 24, target SDK 36.  
+Command: `flutter build apk --release --dart-define-from-file=.env.supabase.public.json`
+Path: `build/app/outputs/flutter-apk/app-release.apk`
+Size: 60,578,376 bytes (57.8 MiB)
+SHA-256: `BEA0D2343C92D4A0A9A3010BE31D8F4F87149C7BED56C61C9406F7E3C51C59BE`
+Package: `com.fleetflow.fleet_flow`, version 1.0.0 (1), min SDK 24, target SDK 36.
 Signing: existing Android Debug certificate, verified with apksigner; not production/store signing. All three configured Android ABIs were built. The APK contains only the verified project URL and client-safe publishable key; the ignored local JSON is not committed. Backend setup remains required before proof submission can succeed.
 
-`flutter doctor` reports outstanding Android licenses, missing Chrome executable and Windows C++ components; these did not prevent the Android build. `flutter devices`/ADB found no physical Android device. Emulator launch verification is recorded in the final handoff after its boot check.
+`flutter doctor` reports outstanding Android licenses, missing Chrome executable and Windows C++ components; these did not prevent the Android build. `flutter devices`/ADB found no physical Android device. The task-owned FleetFlow_QA emulator booted, installed this exact APK and reported Status: ok / LaunchState: COLD for MainActivity. However, the captured screen was black and dumpsys showed Application Not Responding: com.android.systemui as the focused window. Interactive app/camera/GPS validation is BLOCKED, not passed. No app fatal exception appeared in the targeted log capture. The task-owned emulator was stopped after diagnosis to release host memory.
 
 ## New dependencies
 
@@ -127,3 +127,5 @@ Detailed runbook and consistency design: [SUPABASE_PROOF_INTEGRATION.md](SUPABAS
 - `test/proof_capture_widget_test.dart`
 - `test/proof_notification_customer_test.dart`
 - `test/supabase_proof_test.dart`
+
+- `docs/TASK16_DELIVERY_REPORT.md`
