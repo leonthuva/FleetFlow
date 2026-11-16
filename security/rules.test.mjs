@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {before,after,beforeEach,test} from 'node:test';
 import {initializeTestEnvironment,assertSucceeds,assertFails} from '@firebase/rules-unit-testing';
-import {doc,getDoc,setDoc,updateDoc,getDocs,collection,query,where,serverTimestamp} from 'firebase/firestore';
+import {doc,getDoc,setDoc,updateDoc,deleteDoc,getDocs,collection,query,where,serverTimestamp} from 'firebase/firestore';
 let env;
 const db=uid=>uid?env.authenticatedContext(uid).firestore():env.unauthenticatedContext().firestore();
 const write=(uid,path,data)=>setDoc(doc(db(uid),path),data);
@@ -118,6 +118,55 @@ test('trips are UID-scoped read-only records until tracking writer approval',asy
  await assertFails(write('manager','trips/New',{driverId:'driver'}));
 });
 
+const CODE='ABCDEFGHJKLM';
+const linkData=(extra={})=>({deliveryId:'T1',status:'assigned',recipientFirstName:'Kamal',driverFirstName:'Nimal',createdAt:serverTimestamp(),updatedAt:serverTimestamp(),...extra});
+const seedTracked=async(status='assigned')=>env.withSecurityRulesDisabled(async c=>{
+ const s=c.firestore();
+ await setDoc(doc(s,'deliveries/T1'),{driverId:'driver',status,recipientName:'Kamal Silva',trackingCode:CODE,address:'Colombo'});
+ await setDoc(doc(s,'trackingLinks/'+CODE),{deliveryId:'T1',status,recipientFirstName:'Kamal'});
+});
+test('tracking links: anyone can read one by code but nobody can list',async()=>{
+ await seedTracked();
+ await assertSucceeds(getDoc(doc(db(),'trackingLinks/'+CODE)));
+ await assertSucceeds(getDoc(doc(db('other'),'trackingLinks/'+CODE)));
+ await assertFails(getDocs(collection(db(),'trackingLinks')));
+ await assertFails(getDocs(collection(db('manager'),'trackingLinks')));
+ await assertFails(getDoc(doc(db(),'deliveries/T1')));
+});
+test('tracking links: only a manager creates one, bound to its delivery',async()=>{
+ const batchCreate=async(uid,code,extra={},deliveryCode=CODE)=>{
+  const store=db(uid);
+  const {writeBatch}=await import('firebase/firestore');
+  const b=writeBatch(store);
+  b.set(doc(store,'deliveries/T2'),{driverId:'driver',status:'assigned',recipientName:'Kamal Silva',trackingCode:deliveryCode,address:'Colombo',createdBy:uid,createdAt:serverTimestamp(),assignedAt:serverTimestamp(),updatedAt:serverTimestamp(),recipientPhone:'0771234567',pickupAddress:'Depot',latitude:6.9,longitude:79.8,priority:'standard'});
+  b.set(doc(store,'trackingLinks/'+code),linkData({deliveryId:'T2',...extra}));
+  return b.commit();
+ };
+ await assertSucceeds(batchCreate('manager',CODE));
+ await env.clearFirestore();
+ await assertFails(batchCreate('driver',CODE));
+ await assertFails(batchCreate('manager','SHORT'));
+ await assertFails(batchCreate('manager','abcdefghjklm'));
+ await assertFails(batchCreate('manager',CODE,{address:'Colombo'}));
+ await assertFails(batchCreate('manager',CODE,{phone:'0771234567'}));
+ await assertFails(batchCreate('manager',CODE,{status:'completed'}));
+ await assertFails(batchCreate('manager',CODE,{},'OTHERCODE234'));
+ await assertFails(setDoc(doc(db(),'trackingLinks/'+CODE),linkData()));
+});
+test('tracking links: status may only mirror the real delivery status',async()=>{
+ await seedTracked('arrived');
+ const link=uid=>doc(db(uid),'trackingLinks/'+CODE);
+ await assertSucceeds(updateDoc(link('driver'),{status:'arrived',updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(link('driver'),{status:'completed',updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(link('other'),{status:'arrived',updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(link(null),{status:'arrived',updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(link('driver'),{status:'arrived',recipientFirstName:'X',updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(link('driver'),{status:'arrived',updatedAt:new Date()}));
+ await assertSucceeds(updateDoc(link('manager'),{status:'arrived',updatedAt:serverTimestamp()}));
+ await env.withSecurityRulesDisabled(async c=>updateDoc(doc(c.firestore(),'deliveries/T1'),{status:'completed'}));
+ await assertSucceeds(updateDoc(link('driver'),{status:'completed',updatedAt:serverTimestamp()}));
+ await assertFails(deleteDoc(link('manager')));
+});
 test('proof intents, locks, verified evidence and completion are server-only even for managers',async()=>{
  for(const actor of ['driver','manager']){
   await assertFails(write(actor,'proofUploads/12345678-1234-4234-8234-123456789abc',{driverId:'driver',state:'pending'}));
