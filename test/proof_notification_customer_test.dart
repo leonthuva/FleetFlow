@@ -30,7 +30,7 @@ void main() {
       final map = proof.toMap();
       expect(map['id'], 'proof_123');
       expect(map['deliveryId'], 'DEL-8801');
-      expect(map['photoURL'], 'https://storage.googleapis.com/test.jpg');
+      expect(map['photoUrl'], 'https://storage.googleapis.com/test.jpg');
       expect(map['capturedLocation']['lat'], 37.7749);
       expect(map['recipientName'], 'Alice');
 
@@ -59,36 +59,19 @@ void main() {
   });
 
   group('Member 5: Delivery State Machine & Service', () {
-    test('DeliveryService lifecycle and proof completion flow', () async {
+    test('proof submission cannot report success without secure storage',
+        () async {
       final service = DeliveryService();
-      final initial = service.getDeliveryById('DEL-8803');
-      expect(initial, isNotNull);
-      expect(initial!.status, DeliveryStatus.assigned);
-
-      // Advance status
-      final updated = await service.updateStatus(
-        deliveryId: 'DEL-8803',
-        newStatus: DeliveryStatus.pickedUp,
-      );
-      expect(updated.status, DeliveryStatus.pickedUp);
-
-      // Submit mock proof
-      final proof = await service.submitProofOfDelivery(
-        deliveryId: 'DEL-8803',
-        location: {'lat': 37.0, 'lng': -122.0, 'address': '45 West Elm'},
-        notes: 'Package handed directly',
-        recipientName: 'Bob Vance',
-      );
-
-      expect(proof.deliveryId, 'DEL-8803');
-      final completed = service.getDeliveryById('DEL-8803');
-      expect(completed!.status, DeliveryStatus.completed);
-      expect(completed.proofPhotoUrl, isNotEmpty);
+      expect(service.currentDeliveries, isEmpty);
+      await expectLater(
+          service.submitProofOfDelivery(deliveryId: 'missing', location: {}),
+          throwsStateError);
     });
   });
 
   group('Member 5: Screen Widgets', () {
-    testWidgets('CustomerTrackingScreen renders order status and progress stepper',
+    testWidgets(
+        'CustomerTrackingScreen renders order status and progress stepper',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 1920);
       tester.view.devicePixelRatio = 1.0;
@@ -110,7 +93,8 @@ void main() {
       expect(find.text('In Transit'), findsNWidgets(2));
     });
 
-    testWidgets('CustomerTrackingScreen displays Proof of Delivery photo when delivered',
+    testWidgets(
+        'CustomerTrackingScreen displays Proof of Delivery photo when delivered',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 1920);
       tester.view.devicePixelRatio = 1.0;

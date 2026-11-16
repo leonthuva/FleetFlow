@@ -1,241 +1,166 @@
-import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
-import '../models/app_notification.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/delivery.dart';
 import '../models/delivery_proof.dart';
-import 'notification_service.dart';
-import 'storage_service.dart';
 
+/// One Firestore repository. Rules remain the authoritative security boundary.
 class DeliveryService {
-  static final DeliveryService _instance = DeliveryService._internal();
-  factory DeliveryService() => _instance;
-  DeliveryService._internal() {
-    _initSampleDeliveries();
+  DeliveryService(
+      {FirebaseFirestore? firestore, String? Function()? currentUid})
+      : _db = firestore,
+        _currentUid = currentUid;
+  final FirebaseFirestore? _db;
+  final String? Function()? _currentUid;
+  FirebaseFirestore get firestore => _db ?? FirebaseFirestore.instance;
+  String get uid =>
+      (_currentUid == null
+          ? FirebaseAuth.instance.currentUser?.uid
+          : _currentUid()) ??
+      (throw StateError('Sign in before accessing deliveries.'));
+  final Map<String, Delivery> _cache = {};
+  List<Delivery> get currentDeliveries => List.unmodifiable(_cache.values);
+  Delivery? getDeliveryById(String id) => _cache[id];
+  DeliveryProof? getProofForDelivery(String id) => null;
+  CollectionReference<Map<String, dynamic>> get _deliveries =>
+      firestore.collection('deliveries');
+  Stream<List<Delivery>> get deliveriesStream => watchDeliveries();
+  Stream<List<Delivery>> watchDeliveries({String? driverId}) {
+    Query<Map<String, dynamic>> query = _deliveries;
+    if (driverId != null) query = query.where('driverId', isEqualTo: driverId);
+    return query.snapshots().map((snapshot) {
+      final values = snapshot.docs
+          .map((d) => Delivery.fromMap(d.data(), documentId: d.id))
+          .toList();
+      values.sort((a, b) => (b.createdAt ?? DateTime(1970))
+          .compareTo(a.createdAt ?? DateTime(1970)));
+      _cache
+        ..clear()
+        ..addEntries(values.map((d) => MapEntry(d.id, d)));
+      return values;
+    });
   }
 
-  FirebaseFirestore? _firestore;
-  final StorageService _storageService = StorageService();
-  final NotificationService _notificationService = NotificationService();
-
-  final List<Delivery> _localDeliveries = [];
-  final Map<String, DeliveryProof> _localProofs = {};
-  final StreamController<List<Delivery>> _deliveriesStreamController =
-      StreamController<List<Delivery>>.broadcast();
-
-  Stream<List<Delivery>> get deliveriesStream => _deliveriesStreamController.stream;
-  List<Delivery> get currentDeliveries => List.unmodifiable(_localDeliveries);
-
-  FirebaseFirestore get firestore {
-    _firestore ??= FirebaseFirestore.instance;
-    return _firestore!;
-  }
-
-  void _initSampleDeliveries() {
-    _localDeliveries.addAll([
-      Delivery(
-        id: 'DEL-8801',
-        customerName: 'Alice Springs',
-        customerPhone: '+1 (555) 234-5678',
-        pickup: 'Central Depot Bay 4, Logistics Park',
-        destination: '742 Evergreen Terrace, Springfield',
-        assignedDriverId: 'Marcus Vance',
-        vehicleId: 'FL-101',
-        status: DeliveryStatus.inTransit,
-        eta: '18 mins (approx. 4.2 km)',
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-      ),
-      Delivery(
-        id: 'DEL-8802',
-        customerName: 'Wayne Enterprises (Attn: Lucius)',
-        customerPhone: '+1 (555) 876-5432',
-        pickup: 'Central Depot Bay 2, Logistics Park',
-        destination: '100 Main St, Suite 400, Metro City',
-        assignedDriverId: 'Sara Connor',
-        vehicleId: 'FL-204',
-        status: DeliveryStatus.arrived,
-        eta: 'Driver Arrived at Destination',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      Delivery(
-        id: 'DEL-8803',
-        customerName: 'Robert Vance Refrigeration',
-        customerPhone: '+1 (555) 345-6789',
-        pickup: 'North Hub Dock 12',
-        destination: '45 West Elm Avenue, Riverdale',
-        assignedDriverId: 'Assigned Driver',
-        vehicleId: 'FL-309',
-        status: DeliveryStatus.assigned,
-        eta: 'Scheduled for 2:30 PM',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
-      ),
-      Delivery(
-        id: 'DEL-8804',
-        customerName: 'Harbor Fish Co.',
-        customerPhone: '+1 (555) 987-6543',
-        pickup: 'Warehouse District B',
-        destination: '12 Harbor Bay Road, Dock 4',
-        assignedDriverId: 'Liam Chen',
-        vehicleId: 'FL-412',
-        status: DeliveryStatus.completed,
-        eta: 'Completed',
-        proofPhotoUrl:
-            'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80',
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-        completedAt: DateTime.now().subtract(const Duration(minutes: 5)),
-      ),
-    ]);
-
-    _localProofs['DEL-8804'] = DeliveryProof(
-      id: 'proof_DEL-8804',
-      deliveryId: 'DEL-8804',
-      photoURL:
-          'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-      capturedLocation: {
-        'lat': 37.7749,
-        'lng': -122.4194,
-        'address': '12 Harbor Bay Road, Dock 4',
-      },
-      notes: 'Package placed safely with front-desk attendant.',
-      recipientName: 'G. Fisherman',
-    );
-
-    _emitDeliveries();
-  }
-
-  void _emitDeliveries() {
-    if (!_deliveriesStreamController.isClosed) {
-      _deliveriesStreamController.add(List.unmodifiable(_localDeliveries));
+  Stream<Delivery?> watchDelivery(String id) =>
+      _deliveries.doc(id).snapshots().map((d) =>
+          d.exists ? Delivery.fromMap(d.data()!, documentId: d.id) : null);
+  Stream<DeliveryProof?> watchProof(String id) =>
+      firestore.collection('deliveryProofs').doc(id).snapshots().map((d) =>
+          d.exists ? DeliveryProof.fromMap(d.data()!, documentId: d.id) : null);
+  Future<void> _requireManager(Transaction tx) async {
+    final user = await tx.get(firestore.collection('users').doc(uid));
+    if (!['admin', 'dispatcher'].contains(user.data()?['role'])) {
+      throw StateError('Only a manager can perform this operation.');
     }
   }
 
-  /// Get a single delivery by ID (for Customer Tracking View and Driver View)
-  Delivery? getDeliveryById(String id) {
-    try {
-      return _localDeliveries.firstWhere((d) => d.id.toLowerCase() == id.trim().toLowerCase());
-    } catch (_) {
-      return null;
+  Future<String> createAndAssign(Delivery draft) async {
+    if ([
+          draft.driverId,
+          draft.recipientName,
+          draft.recipientPhone,
+          draft.pickup,
+          draft.address,
+          draft.packageDescription
+        ].any((v) => v.trim().isEmpty) ||
+        !draft.latitude.isFinite ||
+        !draft.longitude.isFinite ||
+        draft.latitude.abs() > 90 ||
+        draft.longitude.abs() > 180 ||
+        !['standard', 'high', 'urgent'].contains(draft.priority)) {
+      throw ArgumentError(
+          'Valid recipient, pickup, destination, coordinates, package and driver are required.');
     }
+    return firestore.runTransaction((tx) async {
+      await _requireManager(tx);
+      final driver =
+          await tx.get(firestore.collection('users').doc(draft.driverId));
+      if (driver.data()?['role'] != 'driver' ||
+          driver.data()?['onShift'] != true) {
+        throw StateError('Selected driver is not an eligible on-shift driver.');
+      }
+      final counter = firestore.collection('counters').doc('deliveries');
+      final count = await tx.get(counter);
+      final value = (count.data()?['value'] as int? ?? 0) + 1;
+      final id = 'DEL-${value.toString().padLeft(4, '0')}';
+      final target = _deliveries.doc(id);
+      if ((await tx.get(target)).exists)
+        throw StateError(
+            'Delivery counter conflicts with an existing ID. Administrator repair required.');
+      tx.set(counter, {'value': value});
+      tx.set(target, {
+        ...draft.copyWith(id: id, status: DeliveryStatus.assigned).toMap(),
+        'createdBy': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'assignedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp()
+      });
+      return id;
+    });
   }
 
-  /// Get proof of delivery record for a delivery
-  DeliveryProof? getProofForDelivery(String deliveryId) {
-    return _localProofs[deliveryId];
-  }
-
-  /// Update delivery status according to the state machine:
-  /// `assigned` -> `picked_up` -> `in_transit` -> `arrived` -> `completed`
-  Future<Delivery> updateStatus({
-    required String deliveryId,
-    required String newStatus,
-  }) async {
-    final index = _localDeliveries.indexWhere((d) => d.id == deliveryId);
-    if (index == -1) {
-      throw ArgumentError('Delivery $deliveryId not found');
+  Future<Delivery> updateStatus(
+      {required String deliveryId, required String newStatus}) async {
+    if ([DeliveryStatus.completed, DeliveryStatus.cancelled]
+        .contains(newStatus)) {
+      throw StateError(newStatus == DeliveryStatus.completed
+          ? 'Completion requires secure proof persistence. Proof storage is currently unavailable.'
+          : 'Use manager cancellation with a reason.');
     }
-
-    final current = _localDeliveries[index];
-    final updated = current.copyWith(
-      status: newStatus,
-      completedAt: newStatus == DeliveryStatus.completed ? DateTime.now() : null,
-    );
-
-    _localDeliveries[index] = updated;
-    _emitDeliveries();
-
-    // Trigger notification to manager/driver
-    await _notificationService.sendNotification(
-      recipientId: 'all_managers',
-      message: 'Delivery ${current.id} status changed to ${DeliveryStatus.getLabel(newStatus)}.',
-      type: NotificationType.statusChange,
-      metadata: {'deliveryId': deliveryId, 'status': newStatus},
-    );
-
-    // Sync to Firestore
-    try {
-      await firestore.collection('deliveries').doc(deliveryId).update({
+    final result = await firestore.runTransaction((tx) async {
+      final user = await tx.get(firestore.collection('users').doc(uid));
+      final ref = _deliveries.doc(deliveryId);
+      final snap = await tx.get(ref);
+      if (!snap.exists) throw StateError('Delivery not found.');
+      final current = Delivery.fromMap(snap.data()!, documentId: snap.id);
+      if (user.data()?['role'] != 'driver' || current.driverId != uid)
+        throw StateError('This delivery is not assigned to you.');
+      if (!current.canTransitionTo(newStatus))
+        throw StateError('Invalid delivery stage transition.');
+      final field = {
+        DeliveryStatus.pickedUp: 'pickedUpAt',
+        DeliveryStatus.inTransit: 'inTransitAt',
+        DeliveryStatus.arrived: 'arrivedAt'
+      }[newStatus];
+      if (field == null) throw StateError('Unsupported stage.');
+      tx.update(ref, {
         'status': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-        if (newStatus == DeliveryStatus.completed) 'completedAt': FieldValue.serverTimestamp(),
+        field: FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp()
       });
-    } catch (_) {}
-
-    return updated;
+      return current.copyWith(status: newStatus);
+    });
+    _cache[deliveryId] = result;
+    return result;
   }
 
-  /// Submit Proof of Delivery:
-  /// 1. Uploads photo to Firebase Storage (`deliveries/{deliveryId}/proof.jpg`)
-  /// 2. Creates record in Firestore `deliveryProof` collection
-  /// 3. Updates delivery doc with `status: 'completed'` & `proofPhotoUrl`
-  /// 4. Sends completion push notification to manager
-  Future<DeliveryProof> submitProofOfDelivery({
-    required String deliveryId,
-    File? photoFile,
-    Uint8List? photoBytes,
-    required Map<String, dynamic> location,
-    String? notes,
-    String? recipientName,
-  }) async {
-    // 1. Upload photo to Firebase Storage
-    final photoUrl = await _storageService.uploadDeliveryProof(
-      deliveryId: deliveryId,
-      file: photoFile,
-      bytes: photoBytes,
-    );
-
-    // 2. Build DeliveryProof record
-    final proofId = 'proof_${DateTime.now().millisecondsSinceEpoch}';
-    final proof = DeliveryProof(
-      id: proofId,
-      deliveryId: deliveryId,
-      photoURL: photoUrl,
-      timestamp: DateTime.now(),
-      capturedLocation: location,
-      notes: notes,
-      recipientName: recipientName,
-    );
-
-    _localProofs[deliveryId] = proof;
-
-    // 3. Update delivery to 'completed' with proof URL
-    final index = _localDeliveries.indexWhere((d) => d.id == deliveryId);
-    if (index != -1) {
-      final updatedDelivery = _localDeliveries[index].copyWith(
-        status: DeliveryStatus.completed,
-        proofPhotoUrl: photoUrl,
-        completedAt: DateTime.now(),
-      );
-      _localDeliveries[index] = updatedDelivery;
-      _emitDeliveries();
-    }
-
-    // 4. Save to Firestore `deliveryProof` and update `deliveries`
-    try {
-      await firestore.collection('deliveryProof').doc(proofId).set(proof.toMap());
-      await firestore.collection('deliveries').doc(deliveryId).update({
-        'status': DeliveryStatus.completed,
-        'proofPhotoUrl': photoUrl,
-        'completedAt': FieldValue.serverTimestamp(),
+  Future<void> cancel(String id, String reason) async {
+    if (reason.trim().isEmpty)
+      throw ArgumentError('Cancellation reason required.');
+    await firestore.runTransaction((tx) async {
+      await _requireManager(tx);
+      final ref = _deliveries.doc(id);
+      final snap = await tx.get(ref);
+      if (!snap.exists || !Delivery.fromMap(snap.data()!).isActive)
+        throw StateError('Only active deliveries may be cancelled.');
+      tx.update(ref, {
+        'status': DeliveryStatus.cancelled,
+        'cancelReason': reason.trim(),
+        'cancelledAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp()
       });
-    } catch (e) {
-      debugPrint('DeliveryService: Firestore write fallback: $e');
-    }
+    });
+  }
 
-    // 5. Send notification to operations manager
-    await _notificationService.sendNotification(
-      recipientId: 'all_managers',
-      title: 'Proof Submitted & Order Delivered',
-      message: 'Proof of delivery submitted for order $deliveryId. Delivery is now completed.',
-      type: NotificationType.deliveryCompleted,
-      metadata: {
-        'deliveryId': deliveryId,
-        'proofPhotoUrl': photoUrl,
-        'proofId': proofId,
-      },
-    );
-
-    return proof;
+  Future<DeliveryProof> submitProofOfDelivery(
+      {required String deliveryId,
+      File? photoFile,
+      Uint8List? photoBytes,
+      required Map<String, dynamic> location,
+      String? notes,
+      String? recipientName}) async {
+    throw StateError(
+        'Secure proof storage is unavailable on the current Firebase plan. No proof was uploaded and the delivery was not completed.');
   }
 }

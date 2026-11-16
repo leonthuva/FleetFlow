@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/firestore_dates.dart';
+
 /// Status definitions and state machine for delivery lifecycle.
 /// Formal progression flow: assigned -> picked_up -> in_transit -> arrived -> completed
 class DeliveryStatus {
@@ -17,13 +20,14 @@ class DeliveryStatus {
     completed,
   ];
 
-  /// All active/standard statuses
+  /// All persisted statuses
   static const List<String> all = [
     assigned,
     pickedUp,
     inTransit,
     arrived,
     completed,
+    cancelled,
   ];
 
   /// Human-friendly display label for each status.
@@ -80,7 +84,9 @@ class DeliveryStatus {
   static bool isValidTransition(String current, String target) {
     if (current == target) return false;
     if (current == completed || current == cancelled) return false;
-    if (target == cancelled) return true; // Cancellation allowed prior to completion
+    if (target == cancelled)
+      return standardSequence
+          .contains(current); // Cancellation allowed prior to completion
 
     final currentIndex = standardSequence.indexOf(current);
     final targetIndex = standardSequence.indexOf(target);
@@ -131,11 +137,11 @@ class Delivery {
     String? customerName,
     String? recipientPhone,
     String? customerPhone,
-    this.pickup = 'Central Logistics Hub, Bay 3',
-    this.latitude = 37.7749,
-    this.longitude = -122.4194,
-    this.packageDescription = 'Standard Parcel Delivery',
-    this.specialInstructions = 'Deliver to front desk or designated receiving area.',
+    this.pickup = '',
+    this.latitude = 0,
+    this.longitude = 0,
+    this.packageDescription = '',
+    this.specialInstructions = '',
     this.priority = 'standard',
     this.eta,
     this.proofPhotoUrl,
@@ -147,8 +153,8 @@ class Delivery {
     this.completedAt,
   })  : driverId = driverId ?? assignedDriverId ?? '',
         address = address ?? destination ?? '',
-        recipientName = recipientName ?? customerName ?? 'Valued Customer',
-        recipientPhone = recipientPhone ?? customerPhone ?? '+1 (555) 019-2834';
+        recipientName = recipientName ?? customerName ?? '',
+        recipientPhone = recipientPhone ?? customerPhone ?? '';
 
   // Backwards compatibility helpers
   String get deliveryId => id;
@@ -183,65 +189,52 @@ class Delivery {
 
   factory Delivery.fromMap(Map<String, dynamic> map, {String? documentId}) {
     return Delivery(
-      id: documentId ?? map['id'] as String? ?? map['deliveryId'] as String? ?? '',
-      driverId: map['driverId'] as String? ?? map['assignedDriverId'] as String? ?? '',
+      id: documentId ??
+          map['id'] as String? ??
+          map['deliveryId'] as String? ??
+          '',
+      driverId: map['driverId'] as String? ??
+          map['assignedDriverId'] as String? ??
+          '',
       vehicleId: map['vehicleId'] as String? ?? '',
       address: map['address'] as String? ?? map['destination'] as String? ?? '',
-      pickup: map['pickup'] as String? ?? 'Central Logistics Hub, Bay 3',
+      pickup: map['pickupAddress'] as String? ?? map['pickup'] as String? ?? '',
       status: map['status'] as String? ?? DeliveryStatus.assigned,
-      recipientName: map['recipientName'] as String? ?? map['customerName'] as String? ?? 'Valued Customer',
-      recipientPhone: map['recipientPhone'] as String? ?? map['customerPhone'] as String? ?? '+1 (555) 019-2834',
-      latitude: (map['latitude'] as num?)?.toDouble() ?? 37.7749,
-      longitude: (map['longitude'] as num?)?.toDouble() ?? -122.4194,
-      packageDescription: map['packageDescription'] as String? ?? 'Standard Parcel Delivery',
-      specialInstructions: map['specialInstructions'] as String? ?? 'Deliver to front desk.',
+      recipientName: map['recipientName'] as String? ??
+          map['customerName'] as String? ??
+          '',
+      recipientPhone: map['recipientPhone'] as String? ??
+          map['customerPhone'] as String? ??
+          '',
+      latitude: (map['latitude'] as num?)?.toDouble() ?? 0,
+      longitude: (map['longitude'] as num?)?.toDouble() ?? 0,
+      packageDescription:
+          map['packageDescription'] as String? ?? 'Standard Parcel Delivery',
+      specialInstructions:
+          map['specialInstructions'] as String? ?? 'Deliver to front desk.',
       priority: map['priority'] as String? ?? 'standard',
       eta: map['eta'] as String?,
-      proofPhotoUrl: map['proofPhotoUrl'] as String? ?? map['proofPhotoURL'] as String?,
+      proofPhotoUrl:
+          map['proofPhotoUrl'] as String? ?? map['proofPhotoURL'] as String?,
       signatureNotes: map['signatureNotes'] as String?,
-      createdAt: map['createdAt'] != null
-          ? (map['createdAt'] is DateTime
-              ? map['createdAt'] as DateTime
-              : DateTime.tryParse(map['createdAt'].toString()) ?? DateTime.now())
-          : DateTime.now(),
-      pickedUpAt: map['pickedUpAt'] != null
-          ? (map['pickedUpAt'] is DateTime
-              ? map['pickedUpAt'] as DateTime
-              : DateTime.tryParse(map['pickedUpAt'].toString()))
-          : null,
-      inTransitAt: map['inTransitAt'] != null
-          ? (map['inTransitAt'] is DateTime
-              ? map['inTransitAt'] as DateTime
-              : DateTime.tryParse(map['inTransitAt'].toString()))
-          : null,
-      arrivedAt: map['arrivedAt'] != null
-          ? (map['arrivedAt'] is DateTime
-              ? map['arrivedAt'] as DateTime
-              : DateTime.tryParse(map['arrivedAt'].toString()))
-          : null,
-      completedAt: map['completedAt'] != null
-          ? (map['completedAt'] is DateTime
-              ? map['completedAt'] as DateTime
-              : DateTime.tryParse(map['completedAt'].toString()))
-          : null,
+      createdAt: parseFirestoreDate(map['createdAt']),
+      pickedUpAt: parseFirestoreDate(map['pickedUpAt']),
+      inTransitAt: parseFirestoreDate(map['inTransitAt']),
+      arrivedAt: parseFirestoreDate(map['arrivedAt']),
+      completedAt: parseFirestoreDate(map['completedAt']),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'deliveryId': id,
       'driverId': driverId,
-      'assignedDriverId': driverId,
       'vehicleId': vehicleId,
       'address': address,
-      'destination': address,
-      'pickup': pickup,
+      'pickupAddress': pickup,
       'status': status,
       'recipientName': recipientName,
-      'customerName': recipientName,
       'recipientPhone': recipientPhone,
-      'customerPhone': recipientPhone,
       'latitude': latitude,
       'longitude': longitude,
       'packageDescription': packageDescription,
@@ -250,11 +243,13 @@ class Delivery {
       'eta': eta,
       'proofPhotoUrl': proofPhotoUrl,
       'signatureNotes': signatureNotes,
-      'createdAt': (createdAt ?? DateTime.now()).toIso8601String(),
-      'pickedUpAt': pickedUpAt?.toIso8601String(),
-      'inTransitAt': inTransitAt?.toIso8601String(),
-      'arrivedAt': arrivedAt?.toIso8601String(),
-      'completedAt': completedAt?.toIso8601String(),
+      'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
+      'pickedUpAt': pickedUpAt == null ? null : Timestamp.fromDate(pickedUpAt!),
+      'inTransitAt':
+          inTransitAt == null ? null : Timestamp.fromDate(inTransitAt!),
+      'arrivedAt': arrivedAt == null ? null : Timestamp.fromDate(arrivedAt!),
+      'completedAt':
+          completedAt == null ? null : Timestamp.fromDate(completedAt!),
     };
   }
 
