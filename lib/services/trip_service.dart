@@ -9,7 +9,7 @@ class TripService {
   TripService.firestore({
     FirebaseFirestore? instance,
     TripAlertService? alerts,
-  })  : _db = instance ?? FirebaseFirestore.instance,
+  })  : _db = instance,
         _localTrips = null,
         _alerts = alerts;
 
@@ -39,8 +39,8 @@ class TripService {
       throw ArgumentError.value(limit, 'limit', 'Must be positive.');
     }
 
-    final db = _db;
-    if (db == null) {
+    final localTrips = _localTrips;
+    if (localTrips != null) {
       return _queryLocal(
         driverId: driverId,
         vehicleId: vehicleId,
@@ -51,6 +51,7 @@ class TripService {
       );
     }
 
+    final db = _db ?? FirebaseFirestore.instance;
     Query<Map<String, dynamic>> query = db.collection(collectionName);
     if (driverId != null) query = query.where('driverId', isEqualTo: driverId);
     if (vehicleId != null) {
@@ -76,14 +77,15 @@ class TripService {
   }
 
   Future<Trip?> getTripById(String documentId) async {
-    final db = _db;
-    if (db == null) {
-      for (final trip in _localTrips!) {
+    final localTrips = _localTrips;
+    if (localTrips != null) {
+      for (final trip in localTrips) {
         if (trip.id == documentId) return trip;
       }
       return null;
     }
 
+    final db = _db ?? FirebaseFirestore.instance;
     final doc = await db.collection(collectionName).doc(documentId).get();
     final data = doc.data();
     return !doc.exists || data == null
@@ -113,9 +115,9 @@ class TripService {
       throw ArgumentError('A completed trip must have an endTime.');
     }
 
-    final db = _db;
-    if (db == null) {
-      final trips = _localTrips!;
+    final localTrips = _localTrips;
+    if (localTrips != null) {
+      final trips = localTrips;
       final index = trips.indexWhere((existing) => existing.id == trip.id);
       if (index < 0) {
         trips.add(trip);
@@ -128,6 +130,7 @@ class TripService {
       return;
     }
 
+    final db = _db ?? FirebaseFirestore.instance;
     final ref = db.collection(collectionName).doc(trip.id);
     await db.runTransaction((transaction) async {
       final previous = await transaction.get(ref);

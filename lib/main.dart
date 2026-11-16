@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'core/app_config.dart';
 import 'providers/auth_provider.dart';
@@ -51,6 +50,7 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
   late final DriverProvider _driverProvider;
   late final NotificationProvider _notificationProvider;
   late final HistoryProvider _historyProvider;
+  late final bool _ownsHistoryProvider;
 
   @override
   void initState() {
@@ -59,12 +59,19 @@ class _FleetFlowAppState extends State<FleetFlowApp> {
     _driverProvider = widget.driverProvider ?? DriverProvider();
     _notificationProvider =
         widget.notificationProvider ?? NotificationProvider();
+    _ownsHistoryProvider = widget.historyProvider == null;
     _historyProvider = widget.historyProvider ??
         HistoryProvider(
           service: AppConfig.demoMode
               ? TripService.localDemo()
-              : TripService.firestore(instance: FirebaseFirestore.instance),
+              : TripService.firestore(),
         );
+  }
+
+  @override
+  void dispose() {
+    if (_ownsHistoryProvider) _historyProvider.dispose();
+    super.dispose();
   }
 
   @override
