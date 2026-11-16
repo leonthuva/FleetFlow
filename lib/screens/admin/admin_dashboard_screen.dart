@@ -60,6 +60,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return Scaffold(
             appBar: AppBar(title: const Text('FleetFlow Operations'), actions: [
               IconButton(
+                  tooltip: 'Trip history',
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/trip-history'),
+                  icon: const Icon(Icons.route_outlined)),
+              IconButton(
                   tooltip: 'Alerts',
                   onPressed: () =>
                       Navigator.pushNamed(context, '/notifications'),
