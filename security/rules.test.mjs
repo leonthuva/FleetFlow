@@ -46,6 +46,20 @@ test('manager cancellation requires reason and terminal cannot change',async()=>
  await assertSucceeds(change('manager',{status:'cancelled',cancelReason:'Recipient absent',cancelledAt:serverTimestamp(),updatedAt:serverTimestamp()}));
  await assertFails(change('manager',{status:'assigned',updatedAt:serverTimestamp()}));
 });
+const as=(uid,email)=>env.authenticatedContext(uid,{email}).firestore();
+const profile=(extra={})=>({uid:'new',email:'x@y.z',displayName:'X',role:'driver',onShift:false,createdAt:serverTimestamp(),updatedAt:serverTimestamp(),...extra});
+test('a new user may self-register only as an off-shift driver',async()=>{
+ await assertSucceeds(setDoc(doc(as('new','x@y.z'),'users/new'),profile()));
+ await assertSucceeds(setDoc(doc(as('new2','X@Y.Z'),'users/new2'),profile({uid:'new2',email:'x@y.z',phone:'0771234567'})));
+});
+test('self-registration cannot choose a privileged role or spoof another account',async()=>{
+ for(const role of ['admin','dispatcher'])await assertFails(setDoc(doc(as('new','x@y.z'),'users/new'),profile({role})));
+ await assertFails(setDoc(doc(as('new','x@y.z'),'users/someone-else'),profile()));
+ await assertFails(setDoc(doc(as('new','x@y.z'),'users/new'),profile({email:'other@y.z'})));
+ await assertFails(setDoc(doc(as('new','x@y.z'),'users/new'),profile({onShift:true})));
+ await assertFails(setDoc(doc(as('new','x@y.z'),'users/new'),profile({isAdmin:true})));
+ await assertFails(setDoc(doc(as('new','x@y.z'),'users/new'),profile({displayName:''})));
+});
 test('users cannot self provision or escalate approved roles',async()=>{
  await assertFails(write('new','users/new',{role:'driver',email:'x@y.z',displayName:'X'}));
  await assertFails(updateDoc(doc(db('driver'),'users/driver'),{role:'admin'}));
