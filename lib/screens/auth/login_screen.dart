@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/custom_text_field.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final AuthProvider authProvider;
@@ -208,6 +209,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: widget.authProvider.isLoading
+                              ? null
+                              : () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => RegisterScreen(
+                                          authProvider: widget.authProvider),
+                                    ),
+                                  ),
+                          child: const Text('New driver? Create an account'),
                         ),
                       ],
                     ),

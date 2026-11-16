@@ -4,6 +4,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:fleet_flow/providers/auth_provider.dart';
 import 'package:fleet_flow/screens/auth/login_screen.dart';
+import 'package:fleet_flow/screens/auth/register_screen.dart';
 import 'package:fleet_flow/screens/admin/admin_dashboard_screen.dart';
 import 'package:fleet_flow/services/delivery_service.dart';
 
@@ -85,5 +86,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Delivery History'), findsOneWidget);
     expect(find.textContaining('D1 - Customer'), findsOneWidget);
+  });
+  test('driver registration creates a driver-only user document', () async {
+    final db = FakeFirebaseFirestore();
+    final provider = AuthProvider(auth: MockFirebaseAuth(), firestore: db);
+    addTearDown(provider.dispose);
+    final ok = await provider.registerDriver(
+        email: 'new@example.com',
+        password: 'secret1',
+        displayName: 'New Driver',
+        phone: '0771234567');
+    expect(ok, isTrue);
+    expect(provider.errorMessage, isNull);
+    expect(provider.currentUser!.isDriver, isTrue);
+    final snap = await db.collection('users').get();
+    expect(snap.docs, hasLength(1));
+    final data = snap.docs.single.data();
+    expect(data['role'], 'driver');
+    expect(data['email'], 'new@example.com');
+    expect(data['displayName'], 'New Driver');
+    expect(data['onShift'], false);
+  });
+  testWidgets('login offers driver sign up and validates the form',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final provider = AuthProvider();
+    addTearDown(provider.dispose);
+    await tester
+        .pumpWidget(MaterialApp(home: LoginScreen(authProvider: provider)));
+    await tester.tap(find.text('New driver? Create an account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Driver Sign Up'), findsOneWidget);
+    expect(find.textContaining('created by an administrator'), findsOneWidget);
+    expect(find.text('Manager'), findsNothing);
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Password'), 'secret1');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Confirm Password'), 'different');
+    await tester.tap(find.text('Create Account'));
+    await tester.pump();
+    expect(find.text('Full name is required'), findsOneWidget);
+    expect(find.text('Email is required'), findsOneWidget);
+    expect(find.text('Passwords do not match'), findsOneWidget);
+  });
+  testWidgets('register screen renders standalone', (tester) async {
+    final provider = AuthProvider();
+    addTearDown(provider.dispose);
+    await tester
+        .pumpWidget(MaterialApp(home: RegisterScreen(authProvider: provider)));
+    expect(find.text('Create Account'), findsOneWidget);
   });
 }
