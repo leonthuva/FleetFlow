@@ -73,8 +73,25 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isManager() || (signedIn() && request.auth.uid == uid);
 
-      // Account roles are provisioned by an administrator, never self-selected.
-      allow create: if isAdmin() && request.resource.data.role in ['admin','dispatcher','driver'];
+      // Manager/admin accounts are provisioned by an administrator. A signed-in
+      // user may create only their own profile, and only as an off-shift driver.
+      allow create: if (isAdmin() && request.resource.data.role in ['admin','dispatcher','driver'])
+        || (signedIn()
+            && request.auth.uid == uid
+            && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName',
+                'role', 'phone', 'onShift', 'createdAt', 'updatedAt'])
+            && request.resource.data.keys().hasAll(['email', 'displayName', 'role'])
+            && request.resource.data.role == 'driver'
+            && request.resource.data.email is string
+            && request.resource.data.email.lower() == request.auth.token.email.lower()
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
+            && request.resource.data.displayName.size() <= 100
+            && (!('uid' in request.resource.data) || request.resource.data.uid == uid)
+            && (!('onShift' in request.resource.data) || request.resource.data.onShift == false)
+            && (!('phone' in request.resource.data)
+                || (request.resource.data.phone is string
+                    && request.resource.data.phone.size() <= 32)));
 
       allow update: if isAdmin()
         || (signedIn()
