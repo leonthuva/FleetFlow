@@ -84,16 +84,8 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                   destinationLat: delivery.latitude,
                   destinationLng: delivery.longitude,
                   destinationAddress: delivery.address,
-                  currentDriverLat: 37.7749,
-                  currentDriverLng: -122.4194,
                   isNavigationActive: delivery.isInTransit,
-                  onOpenExternalMap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text(
-                              'Opening navigation to ${delivery.address}...')),
-                    );
-                  },
+
                 ),
                 const SizedBox(height: 16),
 
