@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/firestore_dates.dart';
 import 'package:flutter/material.dart';
 
 class NotificationType {
@@ -69,6 +71,11 @@ class NotificationType {
 class AppNotification {
   final String notificationId;
   final String recipientId;
+  final List<String> recipientIds;
+  final List<String> recipientRoles;
+  final List<String> readBy;
+  final String createdBy;
+  final String audience;
   final String title;
   final String message;
   final String type;
@@ -79,6 +86,11 @@ class AppNotification {
   const AppNotification({
     required this.notificationId,
     required this.recipientId,
+    this.recipientIds = const [],
+    this.recipientRoles = const [],
+    this.readBy = const [],
+    this.createdBy = '',
+    this.audience = 'driver',
     required this.title,
     required this.message,
     required this.type,
@@ -89,32 +101,43 @@ class AppNotification {
 
   String? get deliveryId => metadata?['deliveryId'] as String?;
 
-  factory AppNotification.fromMap(Map<String, dynamic> map, {String? documentId}) {
+  factory AppNotification.fromMap(Map<String, dynamic> map,
+      {String? documentId, String? currentUid}) {
     return AppNotification(
-      notificationId: documentId ?? map['notificationId'] as String? ?? map['id'] as String? ?? '',
+      notificationId: documentId ??
+          map['notificationId'] as String? ??
+          map['id'] as String? ??
+          '',
       recipientId: map['recipientId'] as String? ?? '',
       title: map['title'] as String? ?? 'Fleet Notification',
       message: map['message'] as String? ?? '',
       type: map['type'] as String? ?? NotificationType.statusChange,
-      timestamp: map['timestamp'] != null
-          ? (map['timestamp'] is DateTime
-              ? map['timestamp'] as DateTime
-              : DateTime.tryParse(map['timestamp'].toString()) ?? DateTime.now())
-          : DateTime.now(),
-      read: map['read'] as bool? ?? false,
-      metadata: map['metadata'] is Map ? Map<String, dynamic>.from(map['metadata'] as Map) : null,
+      timestamp: parseFirestoreDate(map['timestamp']) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      recipientIds: List<String>.from(map['recipientIds'] ?? []),
+      recipientRoles: List<String>.from(map['recipientRoles'] ?? []),
+      readBy: List<String>.from(map['readBy'] ?? []),
+      createdBy: map['createdBy'] as String? ?? '',
+      audience: map['audience'] as String? ?? '',
+      read: (map['readBy'] as List? ?? []).contains(currentUid),
+      metadata: map['metadata'] is Map
+          ? Map<String, dynamic>.from(map['metadata'] as Map)
+          : null,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'notificationId': notificationId,
-      'recipientId': recipientId,
+      'recipientIds': recipientIds,
+      'recipientRoles': recipientRoles,
+      'readBy': readBy,
+      'createdBy': createdBy,
+      'audience': audience,
       'title': title,
       'message': message,
       'type': type,
-      'timestamp': timestamp.toIso8601String(),
-      'read': read,
+      'timestamp': Timestamp.fromDate(timestamp),
       if (metadata != null) 'metadata': metadata,
     };
   }
@@ -132,6 +155,11 @@ class AppNotification {
     return AppNotification(
       notificationId: notificationId ?? this.notificationId,
       recipientId: recipientId ?? this.recipientId,
+      recipientIds: recipientIds,
+      recipientRoles: recipientRoles,
+      readBy: readBy,
+      createdBy: createdBy,
+      audience: audience,
       title: title ?? this.title,
       message: message ?? this.message,
       type: type ?? this.type,

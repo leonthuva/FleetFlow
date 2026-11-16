@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/delivery.dart';
 import '../../providers/driver_provider.dart';
-import '../../widgets/driver/camera_pod_insertion_point.dart';
+import '../proof/proof_of_delivery_screen.dart';
 import '../../widgets/driver/map_insertion_point.dart';
 import '../../widgets/driver/safety_telematics_insertion_point.dart';
 
@@ -20,37 +20,22 @@ class DeliveryDetailScreen extends StatefulWidget {
 }
 
 class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
-  String? _temporaryPodPhotoUrl;
-  String? _temporarySignatureNotes;
-
-  void _advanceDelivery(Delivery delivery) {
-    // If transitioning from arrived to completed, verify POD if required
+  Future<void> _advanceDelivery(Delivery delivery) async {
     if (delivery.isArrived) {
-      if (_temporaryPodPhotoUrl == null && delivery.proofPhotoUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please capture Proof of Delivery (photo) before completing.'),
-            backgroundColor: Colors.purple,
-          ),
-        );
-      }
+      await Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => ProofOfDeliveryScreen(delivery: delivery)));
+      return;
     }
-
-    final success = widget.driverProvider.advanceDeliveryStatus(delivery.id);
-    if (success) {
-      final updated = widget.driverProvider.getDeliveryById(delivery.id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Status updated to: ${updated?.statusDisplayName}'),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
-    } else {
-      final err = widget.driverProvider.errorMessage ?? 'Status update failed';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err), backgroundColor: Colors.red),
-      );
-    }
+    final success =
+        await widget.driverProvider.advanceDeliveryStatus(delivery.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success
+            ? widget.driverProvider.notificationWarning ??
+                'Delivery stage saved'
+            : widget.driverProvider.errorMessage ?? 'Update failed')));
   }
 
   @override
@@ -58,7 +43,8 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
     return ListenableBuilder(
       listenable: widget.driverProvider,
       builder: (context, _) {
-        final delivery = widget.driverProvider.getDeliveryById(widget.deliveryId);
+        final delivery =
+            widget.driverProvider.getDeliveryById(widget.deliveryId);
 
         if (delivery == null) {
           return Scaffold(
@@ -76,7 +62,9 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                 tooltip: 'Call Recipient',
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Calling recipient at ${delivery.recipientPhone}...')),
+                    SnackBar(
+                        content: Text(
+                            'Calling recipient at ${delivery.recipientPhone}...')),
                   );
                 },
               ),
@@ -97,14 +85,7 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                   destinationLat: delivery.latitude,
                   destinationLng: delivery.longitude,
                   destinationAddress: delivery.address,
-                  currentDriverLat: 37.7749,
-                  currentDriverLng: -122.4194,
                   isNavigationActive: delivery.isInTransit,
-                  onOpenExternalMap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Opening navigation to ${delivery.address}...')),
-                    );
-                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -123,31 +104,12 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                 ],
 
                 // 5. Agreed Camera & POD Insertion Point (Member 5)
-                CameraPodInsertionPoint(
-                  deliveryId: delivery.id,
-                  initialPhotoUrl: delivery.proofPhotoUrl ?? _temporaryPodPhotoUrl,
-                  initialNotes: delivery.signatureNotes ?? _temporarySignatureNotes,
-                  onPhotoCaptured: (url) {
-                    setState(() {
-                      _temporaryPodPhotoUrl = url;
-                    });
-                    widget.driverProvider.attachProofOfDelivery(
-                      delivery.id,
-                      url,
-                      _temporarySignatureNotes ?? 'Delivered and verified by driver.',
-                    );
-                  },
-                  onDetailsSubmitted: (recipient, notes) {
-                    _temporarySignatureNotes = notes;
-                    if (_temporaryPodPhotoUrl != null) {
-                      widget.driverProvider.attachProofOfDelivery(
-                        delivery.id,
-                        _temporaryPodPhotoUrl!,
-                        notes,
-                      );
-                    }
-                  },
-                ),
+                if (delivery.isArrived)
+                  FilledButton.icon(
+                      onPressed: () => _advanceDelivery(delivery),
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Capture proof of delivery')),
+
                 const SizedBox(height: 80), // Padding for sticky bottom button
               ],
             ),
@@ -162,11 +124,27 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
   /// assigned -> picked_up -> in_transit -> arrived -> completed
   Widget _buildStatusFlowProgress(BuildContext context, Delivery delivery) {
     const steps = [
-      {'key': DeliveryStatus.assigned, 'label': 'Assigned', 'icon': Icons.assignment_turned_in},
-      {'key': DeliveryStatus.pickedUp, 'label': 'Picked Up', 'icon': Icons.inventory_2},
-      {'key': DeliveryStatus.inTransit, 'label': 'In Transit', 'icon': Icons.directions_car},
+      {
+        'key': DeliveryStatus.assigned,
+        'label': 'Assigned',
+        'icon': Icons.assignment_turned_in
+      },
+      {
+        'key': DeliveryStatus.pickedUp,
+        'label': 'Picked Up',
+        'icon': Icons.inventory_2
+      },
+      {
+        'key': DeliveryStatus.inTransit,
+        'label': 'In Transit',
+        'icon': Icons.directions_car
+      },
       {'key': DeliveryStatus.arrived, 'label': 'Arrived', 'icon': Icons.place},
-      {'key': DeliveryStatus.completed, 'label': 'Completed', 'icon': Icons.check_circle},
+      {
+        'key': DeliveryStatus.completed,
+        'label': 'Completed',
+        'icon': Icons.check_circle
+      },
     ];
 
     final currentIdx = delivery.statusStepIndex;
@@ -187,7 +165,8 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: Colors.deepOrange.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -214,7 +193,8 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                   return Expanded(
                     child: Container(
                       height: 3,
-                      color: isPassed ? Colors.deepOrange : Colors.grey.shade300,
+                      color:
+                          isPassed ? Colors.deepOrange : Colors.grey.shade300,
                     ),
                   );
                 } else {
@@ -238,14 +218,18 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                           decoration: BoxDecoration(
                             color: isCurrent
                                 ? Colors.deepOrange
-                                : (isCompleted ? Colors.green : Colors.grey.shade200),
+                                : (isCompleted
+                                    ? Colors.green
+                                    : Colors.grey.shade200),
                             shape: BoxShape.circle,
                             border: Border.all(color: nodeColor, width: 2),
                           ),
                           child: Icon(
                             steps[stepNum]['icon'] as IconData,
                             size: 16,
-                            color: (isCurrent || isCompleted) ? Colors.white : Colors.grey.shade600,
+                            color: (isCurrent || isCompleted)
+                                ? Colors.white
+                                : Colors.grey.shade600,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -253,8 +237,11 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                           steps[stepNum]['label'] as String,
                           style: TextStyle(
                             fontSize: 9,
-                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                            color: isCurrent ? Colors.deepOrange : Colors.grey.shade700,
+                            fontWeight:
+                                isCurrent ? FontWeight.bold : FontWeight.normal,
+                            color: isCurrent
+                                ? Colors.deepOrange
+                                : Colors.grey.shade700,
                           ),
                         ),
                       ],
@@ -280,7 +267,8 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.person_pin_circle_outlined, color: Colors.blue.shade700),
+                Icon(Icons.person_pin_circle_outlined,
+                    color: Colors.blue.shade700),
                 const SizedBox(width: 8),
                 Text(
                   'Customer & Delivery Address',
@@ -339,12 +327,14 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: Colors.black54),
+                  const Icon(Icons.info_outline,
+                      size: 16, color: Colors.black54),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       delivery.specialInstructions,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade800),
                     ),
                   ),
                 ],
@@ -420,18 +410,22 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
       ),
       child: SafeArea(
         child: FilledButton(
-          onPressed: () => _advanceDelivery(delivery),
+          onPressed: widget.driverProvider.isUpdating(delivery.id)
+              ? null
+              : () => _advanceDelivery(delivery),
           style: FilledButton.styleFrom(
             backgroundColor: buttonColor,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(actionIcon),
               const SizedBox(width: 8),
-              Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(actionLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
         ),
