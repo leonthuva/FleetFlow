@@ -60,6 +60,11 @@ class DriverProvider extends ChangeNotifier {
           .snapshots()
           .listen((profile) {
         if (_disposed || session != _session) return;
+        if (profile.data()?['onShift'] == true && !_isShiftActive) {
+          _isShiftActive = true;
+          _shiftStartTime ??= DateTime.now();
+          _shiftEndTime = null;
+        }
         _vehicleSubscription?.cancel();
         final vehicleId = profile.data()?['activeVehicleId'] as String?;
         if (vehicleId == null || vehicleId.isEmpty) {
@@ -154,8 +159,36 @@ class DriverProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Start a driver shift with an assigned vehicle
-  void startShift({Vehicle? vehicle}) {
+  bool _shiftBusy = false;
+  bool get isShiftBusy => _shiftBusy;
+
+  Future<void> _writeOnShift(String uid, bool onShift) {
+    return _service.firestore.collection('users').doc(uid).update({
+      'onShift': onShift,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Start a shift. The `onShift` flag is saved to the driver's profile so
+  /// managers can assign deliveries; the timer itself is local to this session.
+  Future<bool> startShift({Vehicle? vehicle}) async {
+    if (_shiftBusy) return false;
+    final uid = _uid;
+    if (uid != null) {
+      _shiftBusy = true;
+      _errorMessage = null;
+      notifyListeners();
+      try {
+        await _writeOnShift(uid, true);
+      } catch (e) {
+        _shiftBusy = false;
+        _errorMessage = 'Could not start shift: $e';
+        if (!_disposed) notifyListeners();
+        return false;
+      }
+      _shiftBusy = false;
+      if (_disposed) return true;
+    }
     _isShiftActive = true;
     _shiftStartTime = DateTime.now();
     _shiftEndTime = null;
@@ -164,14 +197,34 @@ class DriverProvider extends ChangeNotifier {
     }
     _errorMessage = null;
     notifyListeners();
+    return true;
   }
 
-  /// End a driver shift and record end time
-  void endShift() {
+  /// End a shift, recording the end time and clearing the saved `onShift` flag
+  /// so the driver is no longer offered to managers.
+  Future<bool> endShift() async {
+    if (_shiftBusy) return false;
+    final uid = _uid;
+    if (uid != null) {
+      _shiftBusy = true;
+      _errorMessage = null;
+      notifyListeners();
+      try {
+        await _writeOnShift(uid, false);
+      } catch (e) {
+        _shiftBusy = false;
+        _errorMessage = 'Could not end shift: $e';
+        if (!_disposed) notifyListeners();
+        return false;
+      }
+      _shiftBusy = false;
+      if (_disposed) return true;
+    }
     _isShiftActive = false;
     _shiftEndTime = DateTime.now();
     _errorMessage = null;
     notifyListeners();
+    return true;
   }
 
   /// Lookup delivery by ID

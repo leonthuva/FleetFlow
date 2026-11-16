@@ -196,6 +196,32 @@ void main() {
       provider.bindUser(null);
       expect(provider.activeVehicle.licensePlate, 'Unassigned');
     });
+    test('start and end shift save the on-shift flag for assignment', () async {
+      await db.doc('users/driver').update({'onShift': false});
+      provider.bindUser('driver');
+      await Future<void>.delayed(Duration.zero);
+      expect(await provider.startShift(), isTrue);
+      expect(provider.isShiftActive, isTrue);
+      expect((await db.doc('users/driver').get()).data()!['onShift'], isTrue);
+      expect(await provider.endShift(), isTrue);
+      expect(provider.isShiftActive, isFalse);
+      expect((await db.doc('users/driver').get()).data()!['onShift'], isFalse);
+    });
+    test('saved on-shift profile restores the active shift after restart',
+        () async {
+      await db.doc('users/driver').update({'onShift': true});
+      provider.bindUser('driver');
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(provider.isShiftActive, isTrue);
+    });
+    test('shift taps while a save is pending are ignored', () async {
+      provider.bindUser('driver');
+      await Future<void>.delayed(Duration.zero);
+      final first = provider.startShift();
+      expect(await provider.startShift(), isFalse);
+      expect(await first, isTrue);
+    });
     test('shift UI remains available without fabricated shift history', () {
       expect(provider.isShiftActive, isFalse);
       provider.startShift();

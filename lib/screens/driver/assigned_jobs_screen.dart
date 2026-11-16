@@ -242,7 +242,8 @@ class _AssignedJobsScreenState extends State<AssignedJobsScreen> {
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+                      border:
+                          Border.all(color: statusColor.withValues(alpha: 0.4)),
                     ),
                     child: Text(
                       delivery.statusDisplayName,
