@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/delivery.dart';
 import '../../models/delivery_proof.dart';
 import '../../services/delivery_service.dart';
+import '../../widgets/private_proof_viewer.dart';
 
 class CustomerTrackingScreen extends StatefulWidget {
   final String? deliveryId;
@@ -72,14 +73,12 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                                   ? const Text('No proof record available')
                                   : Column(children: [
                                       Text(proof.recipientName ?? ''),
-                                      if (Uri.tryParse(proof.photoURL)
-                                              ?.scheme ==
-                                          'https')
-                                        Image.network(proof.photoURL,
-                                            height: 240,
-                                            errorBuilder: (_, e, st) =>
-                                                const Text(
-                                                    'Proof image unavailable'))
+                                      if (proof.isVerifiedPrivateProof)
+                                        PrivateProofViewer(
+                                            deliveryId: d.id, service: service)
+                                      else
+                                        const Text(
+                                            'Legacy proof requires an approved storage migration.'),
                                     ]);
                             })
                     ]);

@@ -4,6 +4,7 @@ import '../../models/delivery.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/delivery_service.dart';
 import 'create_delivery_screen.dart';
+import '../customer/customer_tracking_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final AuthProvider authProvider;
@@ -128,12 +129,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       builder: (ctx) => AlertDialog(
                                               title: Text(delivery.id),
                                               content: Text(
-                                                  '${delivery.pickup} to ${delivery.address}\n${delivery.statusDisplayName}\nProof: ${delivery.proofPhotoUrl ?? "Not submitted"}'),
+                                                  '${delivery.pickup} to ${delivery.address}\n${delivery.statusDisplayName}\nProof details are available in the delivery view.'),
                                               actions: [
                                                 TextButton(
                                                     onPressed: () =>
                                                         Navigator.pop(ctx),
-                                                    child: const Text('Close'))
+                                                    child: const Text('Close')),
+                                                TextButton(
+                                                    onPressed: () {
+                                                      Navigator.pop(ctx);
+                                                      Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                              builder: (_) =>
+                                                                  CustomerTrackingScreen(
+                                                                      deliveryId:
+                                                                          delivery
+                                                                              .id,
+                                                                      service:
+                                                                          _service)));
+                                                    },
+                                                    child: const Text(
+                                                        'View delivery and proof'))
                                               ])),
                                   trailing: delivery.isActive
                                       ? IconButton(

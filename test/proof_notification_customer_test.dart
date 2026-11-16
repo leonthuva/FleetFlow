@@ -95,7 +95,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(
         home: ProofOfDeliveryScreen(
             delivery: Delivery(id: 'D1', status: 'arrived'))));
-    expect(find.textContaining('Secure proof upload is unavailable'),
+    expect(
+        find.textContaining('Secure Supabase proof upload is not configured'),
         findsOneWidget);
     await tester.tap(find.text('Tap to Capture Handover Photo'));
     await tester.pumpAndSettle();
