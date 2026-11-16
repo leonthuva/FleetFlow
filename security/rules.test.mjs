@@ -183,3 +183,96 @@ test('proof intents, locks, verified evidence and completion are server-only eve
  await assertFails(getDoc(doc(db('other'),'deliveryProofs/D1')));
  await assertFails(updateDoc(doc(db('manager'),'deliveryProofs/D1'),{storagePath:'replacement'}));
 });
+
+// T4: vehicle management and narrowly scoped driver assignment.
+const vehicleData=(extra={})=>({licensePlate:'WP ABC-1234',model:'Delivery Van',status:'available',createdAt:serverTimestamp(),updatedAt:serverTimestamp(),...extra});
+const seedVehicles=async()=>env.withSecurityRulesDisabled(async c=>{
+ const store=c.firestore();
+ await setDoc(doc(store,'users/dispatcher'),{role:'dispatcher'});
+ await setDoc(doc(store,'vehicles/V1'),vehicleData());
+});
+const assign=(actor,target='driver',vehicleId='V1',extra={})=>updateDoc(doc(db(actor),'users/'+target),{activeVehicleId:vehicleId,updatedAt:serverTimestamp(),...extra});
+
+test('vehicles: admin and dispatcher can create and edit every canonical status',async()=>{
+ await seedVehicles();
+ for(const actor of ['manager','dispatcher']){
+  for(const status of ['available','in_use','maintenance']){
+   await assertSucceeds(write(actor,`vehicles/${actor}-${status}`,vehicleData({status})));
+   await assertSucceeds(updateDoc(doc(db(actor),'vehicles/V1'),{licensePlate:'WP NEW-5678',model:'Updated Van',status,updatedAt:serverTimestamp()}));
+  }
+ }
+ await assertSucceeds(getDoc(doc(db('driver'),'vehicles/V1')));
+});
+test('vehicles: unauthenticated, driver and unprovisioned users cannot mutate inventory',async()=>{
+ await seedVehicles();
+ for(const actor of [null,'driver','other','unprovisioned']){
+  await assertFails(write(actor,'vehicles/Unauthorized',vehicleData()));
+  await assertFails(updateDoc(doc(db(actor),'vehicles/V1'),{status:'maintenance',updatedAt:serverTimestamp()}));
+  await assertFails(deleteDoc(doc(db(actor),'vehicles/V1')));
+ }
+ await assertFails(deleteDoc(doc(db('manager'),'vehicles/V1')));
+});
+test('vehicles: empty, malformed, oversized and noncanonical vehicle fields are denied',async()=>{
+ await seedVehicles();
+ const invalid=[{licensePlate:''},{licensePlate:'   '},{licensePlate:'\t'},{licensePlate:12},{licensePlate:'A'.repeat(33)},{model:''},{model:'   '},{model:null},{model:'M'.repeat(101)},{status:'in-use'},{status:'completed'},{status:null}];
+ for(const fields of invalid){
+  await assertFails(write('manager','vehicles/Invalid',vehicleData(fields)));
+  await assertFails(updateDoc(doc(db('dispatcher'),'vehicles/V1'),{...fields,updatedAt:serverTimestamp()}));
+ }
+ await assertFails(write('manager','vehicles/Extra',vehicleData({isAdmin:true})));
+ await assertFails(write('manager','vehicles/Missing',{licensePlate:'WP ABC-1234',status:'available',createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+});
+test('vehicles: audit times cannot be forged and unrelated legacy fields are preserved',async()=>{
+ await seedVehicles();
+ await assertFails(write('manager','vehicles/OldTime',vehicleData({createdAt:new Date(0)})));
+ await assertFails(updateDoc(doc(db('manager'),'vehicles/V1'),{status:'maintenance',updatedAt:new Date(0)}));
+ await assertFails(updateDoc(doc(db('manager'),'vehicles/V1'),{model:'New',createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(doc(db('manager'),'vehicles/V1'),{model:'New',assignedDriverId:'other',updatedAt:serverTimestamp()}));
+ await env.withSecurityRulesDisabled(async c=>setDoc(doc(c.firestore(),'vehicles/Legacy'),{licensePlate:'OLD-1',model:'Old Van',status:'in-use',type:'Van',currentOdometerKm:1200}));
+ await assertSucceeds(updateDoc(doc(db('manager'),'vehicles/Legacy'),{status:'in_use',updatedAt:serverTimestamp()}));
+ const data=(await getDoc(doc(db('manager'),'vehicles/Legacy'))).data();
+ if(data.type!=='Van'||data.currentOdometerKm!==1200)throw new Error('Legacy attributes were lost.');
+});
+test('vehicle assignment: admin and dispatcher may assign or unassign an existing driver',async()=>{
+ await seedVehicles();
+ for(const actor of ['manager','dispatcher']){
+  await assertSucceeds(assign(actor));
+  const profile=(await getDoc(doc(db(actor),'users/driver'))).data();
+  if(profile.activeVehicleId!=='V1'||profile.role!=='driver'||profile.onShift!==true)throw new Error('Assignment changed unrelated profile fields.');
+  await assertSucceeds(assign(actor,'driver',''));
+ }
+});
+test('vehicle assignment: drivers, strangers and anonymous callers cannot assign any driver',async()=>{
+ await seedVehicles();
+ for(const actor of ['driver','other','unprovisioned',null]){
+  await assertFails(assign(actor,'driver'));
+  await assertFails(assign(actor,'other'));
+  await assertFails(assign(actor,'driver',''));
+ }
+});
+test('vehicle assignment: manager targets must be drivers and vehicle references must exist',async()=>{
+ await seedVehicles();
+ for(const actor of ['manager','dispatcher']){
+  await assertFails(assign(actor,'manager'));
+  await assertFails(assign(actor,'dispatcher'));
+  await assertFails(assign(actor,'missing'));
+  for(const invalid of ['missing','V1/nested/document',null,123])await assertFails(assign(actor,'driver',invalid));
+  await assertFails(assign(actor,'driver','V1',{updatedAt:new Date(0)}));
+  await assertFails(updateDoc(doc(db(actor),'users/driver'),{activeVehicleId:'V1'}));
+ }
+});
+test('vehicle assignment: even admins cannot change driver roles or other profile fields',async()=>{
+ await seedVehicles();
+ for(const actor of ['manager','dispatcher']){
+  for(const patch of [{role:'admin'},{role:'dispatcher'},{onShift:false},{displayName:'Spoofed'},{email:'spoofed@example.test'},{phone:'123'},{fcmToken:'untrusted'},{uid:'other'},{createdAt:serverTimestamp()}]){
+   await assertFails(assign(actor,'driver','V1',patch));
+   await assertFails(updateDoc(doc(db(actor),'users/driver'),patch));
+  }
+ }
+});
+test('vehicle assignment preserves driver self-service shift updates but not self-assignment',async()=>{
+ await seedVehicles();
+ await assertSucceeds(updateDoc(doc(db('driver'),'users/driver'),{onShift:false,updatedAt:serverTimestamp()}));
+ await assertFails(assign('driver'));
+ await assertFails(assign('driver','driver','',{role:'admin'}));
+});

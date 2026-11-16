@@ -93,7 +93,18 @@ service cloud.firestore {
                 || (request.resource.data.phone is string
                     && request.resource.data.phone.size() <= 32)));
 
-      allow update: if isAdmin()
+      function managerVehicleAssignment() {
+        let data = request.resource.data;
+        return isManager()
+          && resource.data.role == 'driver'
+          && onlyChanged(['activeVehicleId', 'updatedAt'])
+          && data.activeVehicleId is string
+          && data.updatedAt == request.time
+          && (data.activeVehicleId == ''
+              || exists(/databases/$(database)/documents/vehicles/$(data.activeVehicleId)));
+      }
+
+      allow update: if managerVehicleAssignment()
         || (signedIn()
             && request.auth.uid == uid
             && onlyChanged(['displayName', 'phone', 'fcmToken', 'onShift', 'updatedAt'])
@@ -149,8 +160,29 @@ service cloud.firestore {
     }
 
     match /vehicles/{vehicleId} {
+      function validVehicle() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['licensePlate', 'model', 'status'])
+          && data.licensePlate is string
+          && data.licensePlate.size() <= 32
+          && data.licensePlate.matches('.*\\S.*')
+          && data.model is string
+          && data.model.size() <= 100
+          && data.model.matches('.*\\S.*')
+          && data.status in ['available', 'in_use', 'maintenance'];
+      }
+
       allow read: if signedIn();
-      allow write: if isManager();
+      allow create: if isManager() && validVehicle()
+        && request.resource.data.keys().hasOnly(['licensePlate', 'model',
+            'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isManager() && validVehicle()
+        && onlyChanged(['licensePlate', 'model', 'status', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+      // Retain vehicle references; deletion is outside the management workflow.
+      allow delete: if false;
     }
 
     match /notificationTargets/{audience} {
