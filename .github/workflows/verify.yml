@@ -46,5 +46,23 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm ci --prefix security
+      - run: npm ci --prefix supabase/tooling
       - run: npm install --global firebase-tools@15.30.1
-      - run: firebase emulators:exec --only firestore --project demo-fleetflow "npm --prefix security test"
+      - run: firebase emulators:exec --only firestore --project demo-fleetflow "npm --prefix security test && npm --prefix supabase/tooling run test:firestore"
+
+  proof-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: supabase/tooling/package-lock.json
+      - run: npm ci --prefix supabase/tooling
+      - run: npm --prefix supabase/tooling run check
+      - run: npm --prefix supabase/tooling run test:backend
+      - run: npm --prefix supabase/tooling run test:policies
+      - run: node --test supabase/tests/provision.test.mjs
