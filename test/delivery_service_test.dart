@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fleet_flow/core/tracking_code.dart';
 import 'package:fleet_flow/models/delivery.dart';
 import 'package:fleet_flow/services/delivery_service.dart';
 
@@ -101,5 +102,64 @@ void main() {
     expect(restored.cancelledAt, date);
     expect(restored.createdBy, 'manager');
     expect(DeliveryStatus.all, contains('cancelled'));
+  });
+  group('customer tracking link', () {
+    test('creation stores a minimal public record with no private data',
+        () async {
+      await db.doc('users/driver').update({'displayName': 'Nimal Perera'});
+      final id = await service.createAndAssign(draft);
+      final code = service.lastTrackingCode!;
+      expect(TrackingCode.isValid(code), isTrue);
+      expect(
+          (await db.doc('deliveries/$id').get()).data()!['trackingCode'], code);
+      final link = (await db.doc('trackingLinks/$code').get()).data()!;
+      expect(link['deliveryId'], id);
+      expect(link['status'], 'assigned');
+      expect(link['recipientFirstName'], 'Recipient');
+      expect(link['driverFirstName'], 'Nimal');
+      expect(link.keys.toSet(), {
+        'deliveryId',
+        'status',
+        'recipientFirstName',
+        'driverFirstName',
+        'createdAt',
+        'updatedAt'
+      });
+      expect(link.toString(), isNot(contains('Colombo')));
+      expect(link.toString(), isNot(contains('0771234567')));
+    });
+    test('driver stages and manager cancellation mirror onto the link',
+        () async {
+      final id = await service.createAndAssign(draft);
+      final code = service.lastTrackingCode!;
+      actor = 'driver';
+      for (final stage in ['picked_up', 'in_transit', 'arrived']) {
+        await service.updateStatus(deliveryId: id, newStatus: stage);
+        expect((await db.doc('trackingLinks/$code').get()).data()!['status'],
+            stage);
+      }
+      actor = 'manager';
+      await service.cancel(id, 'Recipient absent');
+      expect((await db.doc('trackingLinks/$code').get()).data()!['status'],
+          'cancelled');
+    });
+    test('customer lookup streams the status and rejects malformed codes',
+        () async {
+      await service.createAndAssign(draft);
+      final code = service.lastTrackingCode!;
+      final info = await service.watchTracking(TrackingCode.format(code)).first;
+      expect(info!.status, 'assigned');
+      expect(await service.watchTracking('abc').first, isNull);
+      expect(await service.watchTracking('AAAAAAAAAAAA').first, isNull);
+    });
+    test('older deliveries without a tracking code still update', () async {
+      await db
+          .doc('deliveries/OLD')
+          .set(draft.copyWith(status: 'assigned', driverId: 'driver').toMap());
+      actor = 'driver';
+      await service.updateStatus(deliveryId: 'OLD', newStatus: 'picked_up');
+      expect((await db.doc('deliveries/OLD').get()).data()!['status'],
+          'picked_up');
+    });
   });
 }

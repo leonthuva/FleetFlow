@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/delivery.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/delivery_service.dart';
+import '../../core/tracking_code.dart';
 import 'create_delivery_screen.dart';
 import '../customer/customer_tracking_screen.dart';
 
@@ -40,8 +41,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   CreateDeliveryScreen(drivers: drivers, service: _service)));
       if (id != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                _service.notificationWarning ?? '$id saved and assigned')));
+            content: Text(_service.notificationWarning ??
+                '$id saved and assigned. Customer tracking code: ${TrackingCode.format(_service.lastTrackingCode ?? '')}')));
       }
     } catch (e) {
       if (mounted) {
@@ -129,7 +130,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       builder: (ctx) => AlertDialog(
                                               title: Text(delivery.id),
                                               content: Text(
-                                                  '${delivery.pickup} to ${delivery.address}\n${delivery.statusDisplayName}\nProof details are available in the delivery view.'),
+                                                  '${delivery.pickup} to ${delivery.address}\n${delivery.statusDisplayName}${delivery.trackingCode == null ? '' : '\nCustomer tracking code: ${TrackingCode.format(delivery.trackingCode!)}'}\nProof details are available in the delivery view.'),
                                               actions: [
                                                 TextButton(
                                                     onPressed: () =>

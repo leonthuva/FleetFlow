@@ -4,7 +4,9 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/delivery.dart';
+import '../core/tracking_code.dart';
 import '../models/delivery_proof.dart';
+import '../models/tracking_info.dart';
 import 'notification_service.dart';
 import 'storage_service.dart';
 
@@ -32,6 +34,7 @@ class DeliveryService {
           : _currentUid()) ??
       (throw StateError('Sign in before accessing deliveries.'));
   String? notificationWarning;
+  String? lastTrackingCode;
   final Map<String, Delivery> _cache = {};
   List<Delivery> get currentDeliveries => List.unmodifiable(_cache.values);
   Delivery? getDeliveryById(String id) => _cache[id];
@@ -57,6 +60,17 @@ class DeliveryService {
   Stream<Delivery?> watchDelivery(String id) =>
       _deliveries.doc(id).snapshots().map((d) =>
           d.exists ? Delivery.fromMap(d.data()!, documentId: d.id) : null);
+  CollectionReference<Map<String, dynamic>> get _links =>
+      firestore.collection('trackingLinks');
+
+  /// Public tracking view. Works without sign-in; the code is the credential.
+  Stream<TrackingInfo?> watchTracking(String rawCode) {
+    final code = TrackingCode.normalize(rawCode);
+    if (!TrackingCode.isValid(code)) return Stream.value(null);
+    return _links.doc(code).snapshots().map(
+        (d) => d.exists ? TrackingInfo.fromMap(d.data()!, code: d.id) : null);
+  }
+
   Stream<DeliveryProof?> watchProof(String id) =>
       firestore.collection('deliveryProofs').doc(id).snapshots().map((d) =>
           d.exists ? DeliveryProof.fromMap(d.data()!, documentId: d.id) : null);
@@ -102,19 +116,49 @@ class DeliveryService {
         throw StateError(
             'Delivery counter conflicts with an existing ID. Administrator repair required.');
       }
+      final code = TrackingCode.generate();
+      if ((await tx.get(_links.doc(code))).exists) {
+        throw StateError('Tracking code collision. Please try again.');
+      }
       tx.set(counter, {'value': value});
       tx.set(target, {
         ...draft.copyWith(id: id, status: DeliveryStatus.assigned).toMap(),
         'createdBy': uid,
+        'trackingCode': code,
         'createdAt': FieldValue.serverTimestamp(),
         'assignedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp()
       });
+      final driverName =
+          (driver.data()?['displayName'] as String? ?? '').trim();
+      tx.set(_links.doc(code), {
+        'deliveryId': id,
+        'status': DeliveryStatus.assigned,
+        'recipientFirstName': _firstName(draft.recipientName),
+        if (driverName.isNotEmpty) 'driverFirstName': _firstName(driverName),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp()
+      });
+      lastTrackingCode = code;
       return id;
     });
     await _notify(
         recipientId: draft.driverId, deliveryId: id, status: 'assigned');
     return id;
+  }
+
+  static String _firstName(String full) {
+    final parts = full.trim().split(RegExp(r'\s+'));
+    final first = parts.isEmpty ? '' : parts.first;
+    return first.length > 40 ? first.substring(0, 40) : first;
+  }
+
+  void _syncLink(
+      Transaction tx, Map<String, dynamic>? delivery, String status) {
+    final code = delivery?['trackingCode'] as String?;
+    if (code == null || code.isEmpty) return;
+    tx.update(_links.doc(code),
+        {'status': status, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
   Future<Delivery> updateStatus(
@@ -148,6 +192,7 @@ class DeliveryService {
         field: FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp()
       });
+      _syncLink(tx, snap.data(), newStatus);
       return current.copyWith(status: newStatus);
     });
     await _notify(
@@ -190,6 +235,7 @@ class DeliveryService {
         'cancelledAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp()
       });
+      _syncLink(tx, snap.data(), DeliveryStatus.cancelled);
     });
   }
 
@@ -251,6 +297,20 @@ class DeliveryService {
     _cache[deliveryId] =
         Delivery.fromMap(persisted.data()!, documentId: deliveryId);
     notificationWarning = _storage.notificationWarning;
+    // The trusted proof broker completes the delivery, so mirror the final
+    // status onto the public tracking record. Rules require it to match.
+    final code = persisted.data()?['trackingCode'] as String?;
+    if (code != null && code.isNotEmpty) {
+      try {
+        await _links.doc(code).update({
+          'status': DeliveryStatus.completed,
+          'updatedAt': FieldValue.serverTimestamp()
+        });
+      } catch (e) {
+        notificationWarning =
+            'Delivery completed, but the customer tracking view was not updated: $e';
+      }
+    }
     return proof;
   }
 }

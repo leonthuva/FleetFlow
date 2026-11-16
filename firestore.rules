@@ -235,6 +235,42 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Public customer tracking. The 12-character random document ID is the
+    // only credential, so it can be read by ID but never listed. It holds no
+    // address, phone, package or driver contact data.
+    match /trackingLinks/{code} {
+      function linkedDelivery() {
+        return getAfter(/databases/$(database)/documents/deliveries/$(resource.data.deliveryId)).data;
+      }
+
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if isManager()
+        && code.matches('^[A-HJ-NP-Z2-9]{12}$')
+        && request.resource.data.keys().hasOnly(['deliveryId', 'status',
+            'recipientFirstName', 'driverFirstName', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['deliveryId', 'status',
+            'recipientFirstName', 'createdAt', 'updatedAt'])
+        && request.resource.data.status == 'assigned'
+        && request.resource.data.recipientFirstName is string
+        && request.resource.data.recipientFirstName.size() <= 40
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/deliveries/$(request.resource.data.deliveryId)).data.trackingCode == code
+        && getAfter(/databases/$(database)/documents/deliveries/$(request.resource.data.deliveryId)).data.status == 'assigned';
+
+      // Status may only mirror the real delivery status, set by a manager or
+      // the assigned driver.
+      allow update: if (isManager()
+            || (isDriver() && linkedDelivery().driverId == request.auth.uid))
+        && onlyChanged(['status', 'updatedAt'])
+        && request.resource.data.status == linkedDelivery().status
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
     match /counters/{counterId} {
       allow read: if isManager();
       allow create: if isManager() && counterId == 'deliveries'
