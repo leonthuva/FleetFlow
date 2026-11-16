@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/custom_text_field.dart';
+import '../customer/track_delivery_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -221,6 +222,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                           child: const Text('New driver? Create an account'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                                builder: (_) => const TrackDeliveryScreen()),
+                          ),
+                          child: const Text('Track a delivery'),
                         ),
                       ],
                     ),

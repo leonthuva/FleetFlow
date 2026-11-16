@@ -130,6 +130,7 @@ class Delivery {
   final String? createdBy;
   final String? cancelReason;
   final DateTime? completedAt;
+  final String? trackingCode;
 
   const Delivery({
     required this.id,
@@ -162,6 +163,7 @@ class Delivery {
     this.createdBy,
     this.cancelReason,
     this.completedAt,
+    this.trackingCode,
   })  : driverId = driverId ?? assignedDriverId ?? '',
         address = address ?? destination ?? '',
         recipientName = recipientName ?? customerName ?? '',
@@ -238,6 +240,7 @@ class Delivery {
       createdBy: map['createdBy'] as String?,
       cancelReason: map['cancelReason'] as String?,
       completedAt: parseFirestoreDate(map['completedAt']),
+      trackingCode: map['trackingCode'] as String?,
     );
   }
 
@@ -306,6 +309,7 @@ class Delivery {
     String? createdBy,
     String? cancelReason,
     DateTime? completedAt,
+    String? trackingCode,
   }) {
     return Delivery(
       id: id ?? this.id,
@@ -334,6 +338,7 @@ class Delivery {
       createdBy: createdBy ?? this.createdBy,
       cancelReason: cancelReason ?? this.cancelReason,
       completedAt: completedAt ?? this.completedAt,
+      trackingCode: trackingCode ?? this.trackingCode,
     );
   }
 }
